@@ -1,0 +1,63 @@
+<html lang="en">
+    <!DOCTYPE html>
+
+    <head>
+        <meta charset="utf-8" />
+        <link rel="stylesheet" href="styles.css" />
+        <title>YASNES</title>
+        <style>
+            body {
+                margin: 8px;
+                background-color: #222;
+            }
+
+            .container {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                flex-direction: row;
+            }
+
+            .terminal {
+                flex-grow: 1;
+            }
+
+            #canvas {
+                flex-grow: 0.7;
+                object-fit: contain;
+                max-width: 640px;
+                min-width: 160px;
+                padding: 0 0 0 8px;
+                object-position: top;
+                image-rendering: pixelated;
+            }
+
+            #canvas:focus {
+                border: none;
+                outline: none;
+            }
+
+            @media only screen and (max-width: 600px) {
+                .container {
+                    flex-direction: column;
+                }
+
+                #canvas {
+                    max-height: unset;
+                    max-width: unset;
+                    flex-grow: 0.6;
+                    object-position: left;
+                    padding: 8px 0 0 0;
+                }
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="container">
+            <div id="terminal" class="terminal"></div>
+            <canvas tabindex="1" id="canvas" width="160" height="144"></canvas>
+        </div>
+        <script src="bundle.js"></script>
+    </body>
+</html>

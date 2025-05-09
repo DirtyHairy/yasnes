@@ -1,0 +1,18 @@
+{
+  "name": "yasnes",
+  "version": "0.0.1",
+  "description": "Yet another SNES emulator",
+  "main": "index.js",
+  "author": "cnspeckn@googlemail.com",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "copy-webpack-plugin": "^13.0.0",
+    "css-loader": "^7.1.2",
+    "mini-css-extract-plugin": "^2.9.2",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.3",
+    "webpack": "^5.99.8",
+    "webpack-cli": "^6.0.1"
+  }
+}
