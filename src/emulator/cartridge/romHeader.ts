@@ -1,5 +1,7 @@
 import { hex8 } from '../util';
 
+export const HEADER_SIZE = 32;
+
 export const enum Speed {
     high,
     low,
@@ -37,7 +39,7 @@ export interface RomHeader {
 }
 
 export function decodeHeader(data: Uint8Array): RomHeader {
-    if (data.length !== 32) {
+    if (data.length !== HEADER_SIZE) {
         throw new Error('invalid size');
     }
 

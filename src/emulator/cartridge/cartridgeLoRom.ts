@@ -1,7 +1,7 @@
 import { BreakCallback, BreakReason } from '../break';
 import { describeError } from '../util';
 import { Cartridge } from './cartridge';
-import { decodeHeader, describeHeader, RomHeader } from './romHeader';
+import { decodeHeader, describeHeader, HEADER_SIZE, RomHeader } from './romHeader';
 
 const enum CONST {
     HEADER_OFFSET = 0x7fc0,
@@ -18,17 +18,13 @@ export class CartridgeLoRom implements Cartridge {
         }
 
         try {
-            this.header = decodeHeader(data.subarray(CONST.HEADER_OFFSET, CONST.HEADER_OFFSET + 32));
+            this.header = decodeHeader(data.subarray(CONST.HEADER_OFFSET, CONST.HEADER_OFFSET + HEADER_SIZE));
         } catch (e: unknown) {
             throw new Error(`bad ROM header: ${describeError(e)}`);
         }
 
         if (this.header.romSize > data.length) {
             throw new Error('ROM length mismatch');
-        }
-
-        if (data.length > 3 << 20 && this.header.ramSize > 0) {
-            throw new Error('unsupported address space layout');
         }
 
         let checksum = 0;
