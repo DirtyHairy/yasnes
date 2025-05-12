@@ -5,16 +5,19 @@ import $ from 'jquery';
 import { outdent } from 'outdent';
 import { Emulator } from './emulator/emulator';
 import { openFile } from './file';
+import { describeError } from './emulator/util';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let emulator: Emulator | undefined;
 
 function initialize(term: JQueryTerminal, cartridgeData: Uint8Array): void {
     try {
-        emulator = new Emulator({ log: (msg) => term.echo(msg) }, cartridgeData);
+        emulator = new Emulator(cartridgeData);
+
+        term.echo(emulator.getCartridge().description());
         term.echo('emulator initialized');
-    } catch (e) {
-        term.echo(`ERROR: failed to initialize emulator: ${e}`);
+    } catch (e: unknown) {
+        term.echo(`ERROR: failed to initialize emulator: ${describeError(e)}`);
     }
 }
 
