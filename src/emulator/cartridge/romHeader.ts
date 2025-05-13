@@ -66,8 +66,6 @@ export function decodeHeader(data: Uint8Array): RomHeader {
 
     const ramSizeLog2 = data[cursor++] + 10;
     if (ramSizeLog2 > 32) throw new Error('bad RAM size');
-    if (ramSizeLog2 !== 0 && chipset === Chipset.rom) throw new Error('RAM specified for ROM-only cartridge');
-    if (ramSizeLog2 === 0 && chipset !== Chipset.rom) throw new Error('RAM size is empty for RAM cartridge');
 
     const country = data[cursor++];
     const developer = data[cursor++];

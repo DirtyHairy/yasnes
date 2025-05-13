@@ -10,7 +10,7 @@ export default tseslint.config(
     {
         languageOptions: {
             parserOptions: {
-                projectService: { allowDefaultProject: ['webpack.config.mjs', 'eslint.config.mjs'] },
+                projectService: { allowDefaultProject: ['webpack.config.mjs', 'eslint.config.mjs', 'jest.config.mjs'] },
                 tsconfigRootDir: import.meta.dirname,
             },
         },

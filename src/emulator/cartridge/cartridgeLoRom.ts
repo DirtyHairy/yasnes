@@ -1,13 +1,9 @@
 import { describeError } from '../util';
 import { Cartridge } from './cartridge';
-import { decodeHeader, describeHeader, HEADER_SIZE, RomHeader } from './romHeader';
+import { Chipset, decodeHeader, describeHeader, HEADER_SIZE, RomHeader } from './romHeader';
 
 const enum CONST {
     HEADER_OFFSET = 0x7fc0,
-}
-
-function ctz(x: number) {
-    return 31 - Math.clz32(x);
 }
 
 interface HalfBank {
@@ -26,7 +22,7 @@ export class CartridgeLoRom implements Cartridge {
             throw new Error('empty image');
         }
 
-        if (1 << ctz(data.length) !== data.length) {
+        if (1 << (31 - Math.clz32(data.length)) !== data.length) {
             throw new Error('non power of two length ROMs not currently supported');
         }
 
@@ -45,11 +41,10 @@ export class CartridgeLoRom implements Cartridge {
             throw new Error('ROM length mismatch');
         }
 
+        const ramSize = this.header.chipset === Chipset.rom ? 0 : 1 << this.header.ramSizeLog2;
+
         // 64 * 32k = 2MB (for ROM > 2MB) / 64 * 64k = 4MB (for ROM <= 2MB)
-        if (
-            (data.length > 1 << 21 && this.header.ramSizeLog2 > 32 * 0x8000) ||
-            (data.length <= 1 << 21 && this.header.ramSizeLog2 > 64 * 0x8000)
-        ) {
+        if ((data.length > 1 << 21 && ramSize > 64 * 0x8000) || (data.length <= 1 << 21 && ramSize > 64 * 0x10000)) {
             throw new Error('RAM does not fit in loROM address space');
         }
 
@@ -62,7 +57,7 @@ export class CartridgeLoRom implements Cartridge {
             throw new Error('checksum mismatch');
         }
 
-        this.ram = new Uint8Array(1 << this.header.ramSizeLog2);
+        this.ram = new Uint8Array(ramSize);
 
         for (let i = 0; i < 512; i++) {
             this.halfBanks[i] = this.layoutHalfBank(i, data);
@@ -118,13 +113,10 @@ export class CartridgeLoRom implements Cartridge {
 
         // no RAM -> address space fully filled with 32k banks repeated in upper and
         // lower half
-        if (this.header.ramSizeLog2 === 0) {
-            return bankRom();
-        }
+        if (this.ram.length === 0) return bankRom();
 
+        // half the address space is filled with 64k RAM banks
         if (romBanksTotal < 128) {
-            // half the address space is filled with 64k RAM banks
-
             if (bankIndex < 64) {
                 // lower 64 banks are ROM
                 return bankRom();
@@ -151,33 +143,33 @@ export class CartridgeLoRom implements Cartridge {
                     };
                 }
             }
-        } else {
-            // upper address space is ROM, lower address space is RAM
-            if (halfBankIndex & 0x01) {
-                // upper half is ROM
-                return bankRom();
-            } else {
-                // lower half is RAM
-                if (this.ram.length < 0x8000) {
-                    // less then 32k RAM? one bank with masked address lines
-                    return {
-                        writable: true,
-                        mask: this.ram.length - 1,
-                        data: this.ram,
-                    };
-                } else {
-                    const ramBanksTotal = this.ram.length >>> 15;
-                    // technically we have to take the index mod 64, but ramBanksTotal
-                    // is a lower power of two anyway
-                    const offset = 0x8000 * (bankIndex % ramBanksTotal);
+        }
 
-                    // multiple of 32k RAM? multiple 32k banks
-                    return {
-                        writable: true,
-                        mask: 0x7fff,
-                        data: this.ram.subarray(offset, offset + 0x8000),
-                    };
-                }
+        // upper address space is ROM, lower address space is RAM
+        if (halfBankIndex & 0x01) {
+            // upper half is ROM
+            return bankRom();
+        } else {
+            // lower half is RAM
+            if (this.ram.length < 0x8000) {
+                // less then 32k RAM? one bank with masked address lines
+                return {
+                    writable: true,
+                    mask: this.ram.length - 1,
+                    data: this.ram,
+                };
+            } else {
+                const ramBanksTotal = this.ram.length >>> 15;
+                // technically we have to take the index mod 64, but ramBanksTotal
+                // is a lower power of two anyway
+                const offset = 0x8000 * (bankIndex % ramBanksTotal);
+
+                // multiple of 32k RAM? multiple 32k banks
+                return {
+                    writable: true,
+                    mask: 0x7fff,
+                    data: this.ram.subarray(offset, offset + 0x8000),
+                };
             }
         }
     }
