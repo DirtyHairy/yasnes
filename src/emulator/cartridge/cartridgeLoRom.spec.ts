@@ -28,6 +28,7 @@ function addHeader(rom: Uint8Array, ramSize: number): void {
     // version
     rom[cursor++] = 0;
 
+    // 16bit checksum & its complement conveniently add up to 2 * 0xff
     let checksum = 2 * 0xff;
     for (let i = 0; i < rom.length; i++) checksum = (checksum + rom[i]) & 0xffff;
 
