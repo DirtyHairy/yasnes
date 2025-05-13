@@ -7,5 +7,4 @@ export interface Cartridge {
     write(address: number, value: number, breakCb: BreakCallback): void;
 
     peek(address: number): number;
-    poke(address: number, value: number, breakCb: BreakCallback): void;
 }

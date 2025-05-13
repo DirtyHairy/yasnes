@@ -69,23 +69,19 @@ export class CartridgeLoRom implements Cartridge {
     }
 
     read(address: number): number {
-        const halfBank = this.halfBanks[address >> 15];
+        const halfBank = this.halfBanks[address >>> 15];
 
         return halfBank.data[address & halfBank.mask];
     }
 
     write(address: number, value: number): void {
-        const halfBank = this.halfBanks[address >> 15];
+        const halfBank = this.halfBanks[address >>> 15];
 
         if (halfBank.writable) halfBank.data[address & halfBank.mask] = value;
     }
 
     peek(address: number): number {
         return this.read(address);
-    }
-
-    poke(address: number, value: number): void {
-        return this.write(address, value);
     }
 
     private layoutHalfBank(halfBankIndex: number, data: Uint8Array): HalfBank {
@@ -105,7 +101,7 @@ export class CartridgeLoRom implements Cartridge {
             const offset = 0x8000 * (bankIndex % romBanksTotal);
 
             return {
-                mask: 0xffff,
+                mask: 0x1fff,
                 writable: false,
                 data: data.subarray(offset, offset + 0x8000),
             };
