@@ -97,11 +97,11 @@ export class CartridgeLoRom implements Cartridge {
         const romBanksTotal = data.length >>> 15;
 
         // interpret half bank as ROM (which may mirror to the lower half)
-        const bankRom = () => {
+        const bankRom = (): HalfBank => {
             const offset = 0x8000 * (bankIndex % romBanksTotal);
 
             return {
-                mask: 0x1fff,
+                mask: 0x7fff,
                 writable: false,
                 data: data.subarray(offset, offset + 0x8000),
             };

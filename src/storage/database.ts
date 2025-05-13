@@ -15,7 +15,7 @@ export class Database extends Dexie {
         });
     }
 
-    private async requestPersistentStorage() {
+    private async requestPersistentStorage(): Promise<void> {
         if (!navigator.storage?.persist || !navigator.storage?.persisted) {
             console.log('storage manager not supported; unable to request persistent storage');
         }

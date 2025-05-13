@@ -18,8 +18,8 @@ export function openFile(handler: (data: Uint8Array, name: string) => void, acce
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = () => handler(new Uint8Array(reader.result as ArrayBuffer), file.name);
-        reader.onerror = (error) => console.error(`failed to read file ${file.name}`, error);
+        reader.onload = (): void => handler(new Uint8Array(reader.result as ArrayBuffer), file.name);
+        reader.onerror = (error): void => console.error(`failed to read file ${file.name}`, error);
 
         reader.readAsArrayBuffer(file);
     });

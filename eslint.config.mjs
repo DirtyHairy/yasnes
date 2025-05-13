@@ -16,6 +16,7 @@ export default tseslint.config(
         },
         rules: {
             eqeqeq: 'error',
+            '@typescript-eslint/explicit-function-return-type': 'error',
         },
     }
 );
