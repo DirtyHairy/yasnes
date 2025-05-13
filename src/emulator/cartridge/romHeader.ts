@@ -30,8 +30,8 @@ export interface RomHeader {
     mapMode: MapMode;
     speed: Speed;
     chipset: Chipset;
-    romSize: number;
-    ramSize: number;
+    romSizeLog2: number;
+    ramSizeLog2: number;
     country: number;
     developer: number;
     version: number;
@@ -61,13 +61,13 @@ export function decodeHeader(data: Uint8Array): RomHeader {
     const speed = mode & 0x10 ? Speed.high : Speed.low;
     const chipset = decodeChipset(data[cursor++]);
 
-    let romSize = data[cursor++] + 10;
-    if (romSize > 22) throw new Error('bad ROM size');
-    romSize = 1 << romSize;
+    const romSizeLog2 = data[cursor++] + 10;
+    if (romSizeLog2 > 32) throw new Error('bad ROM size');
 
-    let ramSize = data[cursor++] + 10;
-    if (ramSize > 21) throw new Error('bad RAM size');
-    ramSize = 1 << ramSize;
+    const ramSizeLog2 = data[cursor++] + 10;
+    if (ramSizeLog2 > 32) throw new Error('bad RAM size');
+    if (ramSizeLog2 !== 0 && chipset === Chipset.rom) throw new Error('RAM specified for ROM-only cartridge');
+    if (ramSizeLog2 === 0 && chipset !== Chipset.rom) throw new Error('RAM size is empty for RAM cartridge');
 
     const country = data[cursor++];
     const developer = data[cursor++];
@@ -83,7 +83,7 @@ export function decodeHeader(data: Uint8Array): RomHeader {
         throw new Error('checksum does not math complement');
     }
 
-    return { title, mapMode, speed, chipset, romSize, ramSize, country, developer, version, checksum };
+    return { title, mapMode, speed, chipset, romSizeLog2, ramSizeLog2, country, developer, version, checksum };
 }
 
 function decodeMapMode(mode: number): MapMode {
@@ -263,9 +263,9 @@ export function mapModeToString(mapMode: MapMode): string {
 }
 
 export function describeHeader(h: RomHeader): string {
-    return `${h.title}: ${mapModeToString(h.mapMode)}, ${chipsetToString(h.chipset)}, ${h.romSize >>> 10}kB ROM, ${
-        h.ramSize >>> 10
-    }kB RAM, ${speedToString(h.speed)} speed, ${countryToString(h.country)}: ${tvTypeToString(
-        getTvType(h.country)
-    )}, dev ID ${h.developer}, version ${h.version}`;
+    return `${h.title}: ${mapModeToString(h.mapMode)}, ${chipsetToString(h.chipset)}, ${
+        1 << (h.romSizeLog2 - 10)
+    }kB ROM, ${1 << (h.ramSizeLog2 - 10)}kB RAM, ${speedToString(h.speed)} speed, ${countryToString(
+        h.country
+    )}: ${tvTypeToString(getTvType(h.country))}, dev ID ${h.developer}, version ${h.version}`;
 }
