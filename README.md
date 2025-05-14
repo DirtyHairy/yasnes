@@ -11,6 +11,7 @@ this may become an emulator for the SNES / Super Nintendo Entertainment System
 # Resources
 
 * http://www.6502.org/tutorials/65c816opcodes.html
+* https://www.oxyron.de/html/opcodes816.html
 * https://problemkaputt.de/fullsnes.htm
 * https://wiki.superfamicom.org
 * https://snes.nesdev.org/wiki/SNESdev_Wiki
