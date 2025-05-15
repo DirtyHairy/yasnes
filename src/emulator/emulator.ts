@@ -1,6 +1,10 @@
 import { Bus } from './bus';
+import { BusSnes } from './busSnes';
 import { Cartridge } from './cartridge/cartridge';
 import { CartridgeLoRom } from './cartridge/cartridgeLoRom';
+import { Clock } from './clock';
+import { ClockSnes } from './clockSnes';
+import { Cpu } from './cpu/cpu';
 import { describeError } from './util';
 import { Wram } from './wram';
 
@@ -13,7 +17,9 @@ export class Emulator {
         }
 
         this.wram = new Wram();
-        this.bus = new Bus(this.wram, this.cartridge);
+        this.bus = new BusSnes(this.wram, this.cartridge);
+        this.clock = new ClockSnes();
+        this.cpu = new Cpu(this.bus, this.clock);
     }
 
     getCartridge(): Cartridge {
@@ -26,5 +32,7 @@ export class Emulator {
 
     private cartridge: Cartridge;
     private wram: Wram;
-    private bus: Bus;
+    private bus: BusSnes;
+    private clock: Clock;
+    private cpu: Cpu;
 }

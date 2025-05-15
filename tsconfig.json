@@ -16,5 +16,5 @@
         "removeComments": false,
         "experimentalDecorators": true
     },
-    "include": ["src/**/*.ts"]
+    "include": ["src/**/*.ts", "tools/**/*.ts"]
 }
