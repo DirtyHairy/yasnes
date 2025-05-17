@@ -2,7 +2,6 @@ import { Bus } from './bus';
 import { BusSnes } from './busSnes';
 import { Cartridge } from './cartridge/cartridge';
 import { CartridgeLoRom } from './cartridge/cartridgeLoRom';
-import { Clock } from './clock';
 import { ClockSnes } from './clockSnes';
 import { Cpu } from './cpu/cpu';
 import { describeError } from './util';
@@ -44,9 +43,13 @@ export class Emulator {
         return this.cpu;
     }
 
+    getClock(): ClockSnes {
+        return this.clock;
+    }
+
     private cartridge: Cartridge;
     private wram: Wram;
     private bus: BusSnes;
-    private clock: Clock;
+    private clock: ClockSnes;
     private cpu: Cpu;
 }

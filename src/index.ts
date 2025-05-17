@@ -138,10 +138,13 @@ const interpreter: JQueryTerminal.ObjectInterpreter = {
 
         const count = parseNumber(normalize(countStr)) ?? 1;
 
-        const instructions = emulator.run(count);
         const cpu = emulator.getCpu();
+        const clock = emulator.getClock();
 
-        this.echo(`executed ${instructions} instructions`);
+        clock.resetMasterClockCycles();
+        const instructions = emulator.run(count);
+
+        this.echo(`executed ${instructions} instructions in ${clock.getMasterClockCycles()} master clock cycles`);
 
         if (cpu.state.breakReason !== BreakReason.none) {
             this.echo(`break: ${cpu.getBreakMessage()}`);
