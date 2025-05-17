@@ -28,7 +28,7 @@ export function compileDispatcher(): DispatcherFn {
 }
 
 export function generateDispatcher(): string {
-    let code = '';
+    let code = `'use strict;'\n`;
 
     code = generateInstructionFunctions(code);
 
@@ -63,9 +63,10 @@ function generateMainDispatcher(code: string): string {
     const cases = new Array(5)
         .fill(0)
         .map(
+            // prettier-ignore
             (_, i) => outdent`
         case ${hex16(i)}:
-            instructionsTotal += ${subDispatcherName(i as Mode)}(remainingInstruction, state, bus, clock, breakCb);
+            instructionsTotal += ${subDispatcherName(i as Mode)}(instructionLimit - instructionsTotal, state, bus, clock, breakCb);
             break;
     `
         )
@@ -115,15 +116,15 @@ function generateSubDispatcher(mode: Mode, code: string): string {
         outdent`
     function ${subDispatcherName(mode)}(instructionLimit, state, bus, clock, breakCb) {
         let instructions = 0;
-
-        for (; instructions < instructionLimit; instructions++) {
+        while (instructions < instructionLimit) {
             const opcode = bus.read(state.k | state.pc);
-            pc = (pc + 1) & 0xffff;
+            state.pc = (state.pc + 1) & 0xffff;
 
             switch (opcode) {
-    ${cases}
+        ${cases}
             }
 
+            instructions++;
             if (state.slowPath) break;
         }
 

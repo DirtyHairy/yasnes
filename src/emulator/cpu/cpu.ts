@@ -41,7 +41,7 @@ export class Cpu {
         // prettier-ignore
         return outdent`
             A: ${hex16(this.state.a)}    X: ${hex16(this.state.x)}    Y: ${hex16(this.state.y)}    S: ${hex16(this.state.s)}    PC: ${hex16(this.state.pc)}
-            K: ${hex8(this.state.k >> 16)}      D: ${hex8(this.state.d >> 16)}      DBR: ${hex8(this.state.dbr)}    flags: ${flagsToString(this.state.p)}${(this.state.mode === Mode.em as number) ? ' (e)' : ''}
+            K: ${hex8(this.state.k >> 16)}      D: ${hex8(this.state.d >> 16)}      DBR: ${hex8(this.state.dbr)}    flags: ${flagsToString(this.state.p)}${(this.state.mode === Mode.em) ? ' (e)' : ''}
         `;
     }
 

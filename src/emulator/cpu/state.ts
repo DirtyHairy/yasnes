@@ -1,4 +1,5 @@
 import { UnreachableCaseError } from 'ts-essentials';
+import { BreakReason } from '../break';
 
 export const enum SlowPathReason {
     break = 0x01,
@@ -17,8 +18,8 @@ export interface State {
     p: number; // flags
 
     slowPath: number;
-    mode: number;
-    breakReason: number;
+    mode: Mode;
+    breakReason: BreakReason;
 }
 
 export const enum Mode {

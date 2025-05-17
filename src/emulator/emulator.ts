@@ -28,6 +28,10 @@ export class Emulator {
         this.cpu.reset();
     }
 
+    run(instructionLimit: number): number {
+        return this.cpu.run(instructionLimit);
+    }
+
     getCartridge(): Cartridge {
         return this.cartridge;
     }

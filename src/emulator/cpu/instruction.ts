@@ -72,6 +72,8 @@ class CodeBuilder {
     build(): string {
         return outdent`
         (state, bus, clock, breakCb) => {
+            'use strict';
+            
         ${indentString(this.chunks.join('\n'), 4)}
         }
         `;

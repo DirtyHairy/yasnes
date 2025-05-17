@@ -9,6 +9,7 @@ import { describeError } from './emulator/util';
 import { Rom } from './storage/model';
 import { Storage } from './storage/storage';
 import { Debugger } from './emulator/debugger';
+import { BreakReason } from './emulator/break';
 
 const storage = new Storage();
 
@@ -63,39 +64,18 @@ function help(term: JQueryTerminal): void {
     term.echo(outdent`
         Usage:
         
-        help                                    Show this help message
-        load                                    Load a new cartridge and reinitialize the emulator
-        dump <start> [count = 16]               Dump [count] bytes of memory
-        state                                   Dump state
         disassemble [limit = 16]                Disassemble approx. [limit] bytes at PC
         disassemble-at <addr> [limit = 16]      Disassemble approx. [limit] bytes at <addr>
+        dump <start> [count = 16]               Dump [count] bytes of memory
+        help                                    Show this help message
+        load                                    Load a new cartridge and reinitialize the emulator
+        reset                                   Reset the emulator
+        state                                   Dump state
+        step [count = 1]                        Step [count] instructions
     `);
 }
 
 const interpreter: JQueryTerminal.ObjectInterpreter = {
-    help(): void {
-        help(this);
-    },
-    load() {
-        load(this);
-    },
-    dump(startStr, countStr): void {
-        const start = parseNumber(normalize(startStr));
-        const count = parseNumber(normalize(countStr ?? '16'));
-
-        if (start === undefined || count === undefined) return help(this);
-
-        this.echo(dbgr?.dump(start, Math.min(count, 256)));
-    },
-    state(): void {
-        if (emulator === undefined) {
-            this.echo('not initialized');
-            return;
-        }
-
-        this.echo('CPU:');
-        this.echo(emulator.getCpu().describeState());
-    },
     disassemble(counStr): void {
         if (dbgr === undefined) {
             this.echo('not initialized');
@@ -118,6 +98,54 @@ const interpreter: JQueryTerminal.ObjectInterpreter = {
         const count = parseNumber(normalize(countStr)) ?? 16;
 
         this.echo(dbgr.disassembleAt(address, count));
+    },
+    dump(startStr, countStr): void {
+        const start = parseNumber(normalize(startStr));
+        const count = parseNumber(normalize(countStr ?? '16'));
+
+        if (start === undefined || count === undefined) return help(this);
+
+        this.echo(dbgr?.dump(start, Math.min(count, 256)));
+    },
+    help(): void {
+        help(this);
+    },
+    load() {
+        load(this);
+    },
+    reset(): void {
+        if (emulator === undefined) {
+            this.echo('not initialized');
+            return;
+        }
+
+        emulator.reset();
+    },
+    state(): void {
+        if (emulator === undefined) {
+            this.echo('not initialized');
+            return;
+        }
+
+        this.echo('CPU:');
+        this.echo(emulator.getCpu().describeState());
+    },
+    step(countStr): void {
+        if (emulator === undefined) {
+            this.echo('not initialized');
+            return;
+        }
+
+        const count = parseNumber(normalize(countStr)) ?? 1;
+
+        const instructions = emulator.run(count);
+        const cpu = emulator.getCpu();
+
+        this.echo(`executed ${instructions} instructions`);
+
+        if (cpu.state.breakReason !== BreakReason.none) {
+            this.echo(`break: ${cpu.getBreakMessage()}`);
+        }
     },
 };
 
