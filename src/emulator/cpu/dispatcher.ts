@@ -28,7 +28,7 @@ export function compileDispatcher(): DispatcherFn {
 }
 
 export function generateDispatcher(): string {
-    let code = `'use strict;'\n`;
+    let code = `'use strict';\n`;
 
     code = generateInstructionFunctions(code);
 
