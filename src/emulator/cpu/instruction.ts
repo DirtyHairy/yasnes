@@ -86,7 +86,7 @@ class InstructionBase implements Instruction {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult {
         return {
-            disassembly: `not implemented: ${this.opcode}`,
+            disassembly: `D.B ${hex8(this.opcode)}`,
             additionalBytes: 0,
             mode,
         };
@@ -122,7 +122,10 @@ class InstructionSEI extends InstructionBase {
     }
 
     protected build(mode: Mode, builder: CodeBuilder): CodeBuilder {
-        return builder.then(`state.p |= ${Flag.i};`);
+        return builder.then(outdent`
+            state.p |= ${Flag.i};
+            clock.tickCpu(1);
+        `);
     }
 }
 

@@ -63,10 +63,12 @@ function help(term: JQueryTerminal): void {
     term.echo(outdent`
         Usage:
         
-        help                            Show this help message
-        load                            Load a new cartridge and reinitialize the emulator
-        dump <start> [count = 16]       Dump memory
-        state                           Dump state
+        help                                    Show this help message
+        load                                    Load a new cartridge and reinitialize the emulator
+        dump <start> [count = 16]               Dump [count] bytes of memory
+        state                                   Dump state
+        disassemble [limit = 16]                Disassemble approx. [limit] bytes at PC
+        disassemble-at <addr> [limit = 16]      Disassemble approx. [limit] bytes at <addr>
     `);
 }
 
@@ -81,9 +83,7 @@ const interpreter: JQueryTerminal.ObjectInterpreter = {
         const start = parseNumber(normalize(startStr));
         const count = parseNumber(normalize(countStr ?? '16'));
 
-        if (start === undefined || count === undefined) {
-            return help(this);
-        }
+        if (start === undefined || count === undefined) return help(this);
 
         this.echo(dbgr?.dump(start, Math.min(count, 256)));
     },
@@ -95,6 +95,29 @@ const interpreter: JQueryTerminal.ObjectInterpreter = {
 
         this.echo('CPU:');
         this.echo(emulator.getCpu().describeState());
+    },
+    disassemble(counStr): void {
+        if (dbgr === undefined) {
+            this.echo('not initialized');
+            return;
+        }
+
+        const count = parseNumber(normalize(counStr)) ?? 16;
+
+        this.echo(dbgr.disassemble(count));
+    },
+    'disassemble-at'(addressStr, countStr): void {
+        if (dbgr === undefined) {
+            this.echo('not initialized');
+            return;
+        }
+
+        const address = parseNumber(normalize(addressStr));
+        if (address === undefined) return help(this);
+
+        const count = parseNumber(normalize(countStr)) ?? 16;
+
+        this.echo(dbgr.disassembleAt(address, count));
     },
 };
 
