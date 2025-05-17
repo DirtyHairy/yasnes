@@ -26,6 +26,7 @@
         "jquery.terminal": "^2.44.1",
         "mini-css-extract-plugin": "^2.9.2",
         "outdent": "^0.8.0",
+        "ts-essentials": "^10.0.4",
         "ts-jest": "^29.1.1",
         "ts-loader": "^9.5.2",
         "tsx": "^4.19.4",

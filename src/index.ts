@@ -46,7 +46,7 @@ async function initialize(term: JQueryTerminal, rom?: Rom): Promise<void> {
 
         if (newRom) await storage.putRom(rom);
 
-        term.echo(emulator.getCartridge().description());
+        term.echo(emulator.getCartridge().description() + '\n');
         term.echo('emulator initialized');
     } catch (e: unknown) {
         term.echo(`ERROR: failed to initialize emulator: ${describeError(e)}`);
@@ -66,6 +66,7 @@ function help(term: JQueryTerminal): void {
         help                            Show this help message
         load                            Load a new cartridge and reinitialize the emulator
         dump <start> [count = 16]       Dump memory
+        state                           Dump state
     `);
 }
 
@@ -85,6 +86,15 @@ const interpreter: JQueryTerminal.ObjectInterpreter = {
         }
 
         this.echo(dbgr?.dump(start, Math.min(count, 256)));
+    },
+    state(): void {
+        if (emulator === undefined) {
+            this.echo('not initialized');
+            return;
+        }
+
+        this.echo('CPU:');
+        this.echo(emulator.getCpu().describeState());
     },
 };
 

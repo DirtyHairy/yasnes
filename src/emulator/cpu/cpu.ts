@@ -1,13 +1,42 @@
+import { outdent } from 'outdent';
 import { BreakCallback, BreakReason } from '../break';
 import { Bus } from '../bus';
 import { Clock } from '../clock';
 import { dispatcher } from './globals';
 import { Mode, SlowPathReason, State } from './state';
+import { hex16, hex8 } from '../util';
+import { UnreachableCaseError } from 'ts-essentials';
+
+function formatFlags(flags: number): string {
+    const names = ['c', 'z', 'i', 'd', 'x', 'm', 'v', 'n'];
+
+    return names.map((name, i) => (flags & (1 << i) ? name.toUpperCase() : name)).join('');
+}
+
+function formatMode(mode: Mode): string {
+    switch (mode) {
+        case Mode.mx:
+            return 'mx';
+
+        case Mode.mX:
+            return 'mX';
+
+        case Mode.Mx:
+            return 'Mx';
+
+        case Mode.MX:
+            return 'MX';
+
+        case Mode.em:
+            return 'em';
+
+        default:
+            throw new UnreachableCaseError(mode);
+    }
+}
 
 export class Cpu {
-    constructor(private bus: Bus, private clock: Clock) {
-        console.log(dispatcher);
-    }
+    constructor(private bus: Bus, private clock: Clock) {}
 
     reset(): BreakReason {
         this.state.a = 0;
@@ -29,8 +58,20 @@ export class Cpu {
         return this.state.breakReason;
     }
 
+    run(instructionLimit: number): number {
+        return dispatcher(instructionLimit, this.state, this.bus, this.clock, this.breakCb);
+    }
+
     getBreakMessage(): string {
         return this.breakMessage;
+    }
+
+    describeState(): string {
+        // prettier-ignore
+        return outdent`
+            A: ${hex16(this.state.a)}    X: ${hex16(this.state.x)}    Y: ${hex16(this.state.y)}    S: ${hex16(this.state.s)}    PC: ${hex16(this.state.pc)}
+            K: ${hex8(this.state.k)}      D: ${hex8(this.state.d)}      DBR: ${hex8(this.state.dbr)}    flags: ${formatFlags(this.state.p)}    mode: ${formatMode(this.state.mode)}
+        `;
     }
 
     readonly state: State = {

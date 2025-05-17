@@ -1,3 +1,4 @@
+import { outdent } from 'outdent';
 import { hex8 } from '../util';
 
 export const HEADER_SIZE = 32;
@@ -261,9 +262,8 @@ export function mapModeToString(mapMode: MapMode): string {
 }
 
 export function describeHeader(h: RomHeader): string {
-    return `${h.title}: ${mapModeToString(h.mapMode)}, ${chipsetToString(h.chipset)}, ${
-        1 << (h.romSizeLog2 - 10)
-    }kB ROM, ${1 << (h.ramSizeLog2 - 10)}kB RAM, ${speedToString(h.speed)} speed, ${countryToString(
-        h.country
-    )}: ${tvTypeToString(getTvType(h.country))}, dev ID ${h.developer}, version ${h.version}`;
+    // prettier-ignore
+    return outdent`
+        ${h.title}: ${mapModeToString(h.mapMode)}, ${chipsetToString(h.chipset)}, ${1 << (h.romSizeLog2 - 10)}kB ROM, ${1 << (h.ramSizeLog2 - 10)}kB RAM, ${speedToString(h.speed)} speed, ${countryToString(h.country)}: ${tvTypeToString(getTvType(h.country))}, dev ID ${h.developer}, version ${h.version}
+    `;
 }

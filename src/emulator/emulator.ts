@@ -20,6 +20,12 @@ export class Emulator {
         this.bus = new BusSnes(this.wram, this.cartridge);
         this.clock = new ClockSnes();
         this.cpu = new Cpu(this.bus, this.clock);
+
+        this.reset();
+    }
+
+    reset(): void {
+        this.cpu.reset();
     }
 
     getCartridge(): Cartridge {
@@ -28,6 +34,10 @@ export class Emulator {
 
     getBus(): Bus {
         return this.bus;
+    }
+
+    getCpu(): Cpu {
+        return this.cpu;
     }
 
     private cartridge: Cartridge;
