@@ -2,7 +2,7 @@ import { outdent } from 'outdent';
 import { BreakCallback, BreakReason } from '../break';
 import { Bus } from '../bus';
 import { Clock } from '../clock';
-import { Mode, State } from './state';
+import { Mode, modeToString, SlowPathReason, State } from './state';
 import { CompilationFlags, getInstruction } from './instruction';
 import indentString from 'indent-string';
 import { hex16, hex8 } from '../util';
@@ -30,30 +30,28 @@ export function compileDispatcher(): DispatcherFn {
 export function generateDispatcher(): string {
     let code = '';
 
-    code = declareInstructionFunctions(code);
+    code = generateInstructionFunctions(code);
 
     for (let i = 0; i < 5; i++) {
-        const mode = (i << 8) as Mode;
-
-        code = declareSubDispatcher(mode, code) + ' \n\n';
+        code = generateSubDispatcher(i as Mode, code) + ' \n\n';
     }
 
-    code = declareDispatcher(code);
+    code = generateMainDispatcher(code);
 
     return code;
 }
 
-function declareInstructionFunctions(code: string): string {
+function generateInstructionFunctions(code: string): string {
     for (let i = 0; i < 0x500; i++) {
-        const mode = (i & 0x700) as Mode;
+        const mode = (i >> 8) as Mode;
         const opcode = i & 0xff;
-        const instruction = getInstruction(opcode, mode);
+        const instruction = getInstruction(opcode);
 
         code =
             code +
             '\n' +
             `const ${instructionFunctionName(mode, opcode)} = \n${indentString(
-                instruction.compile(CompilationFlags.none),
+                instruction.compile(mode, CompilationFlags.none),
                 4
             )};\n`;
     }
@@ -61,18 +59,17 @@ function declareInstructionFunctions(code: string): string {
     return code;
 }
 
-function declareDispatcher(code: string): string {
+function generateMainDispatcher(code: string): string {
     const cases = new Array(5)
         .fill(0)
-        .map((_, i) => (i << 8) as Mode)
         .map(
-            (mode) => outdent`
-        case ${hex16(mode)}:
-            instructionsTotal += ${subDispatcherName(mode)}(remainingInstruction, state, bus, clock, breakCb);
+            (_, i) => outdent`
+        case ${hex16(i)}:
+            instructionsTotal += ${subDispatcherName(i as Mode)}(remainingInstruction, state, bus, clock, breakCb);
             break;
     `
         )
-        .map((i) => indentString(i, 12))
+        .map((caseBlock) => indentString(caseBlock, 12))
         .join('\n\n');
 
     return (
@@ -83,7 +80,7 @@ function declareDispatcher(code: string): string {
         state.breakReason = ${BreakReason.none};
 
         while (instructionsTotal < instructionLimit) {
-            state.slowPath = 0;
+            state.slowPath &= ${~(SlowPathReason.break | SlowPathReason.modeChange)};
 
             switch(state.mode) {
     ${cases}
@@ -98,7 +95,7 @@ function declareDispatcher(code: string): string {
     );
 }
 
-function declareSubDispatcher(mode: Mode, code: string): string {
+function generateSubDispatcher(mode: Mode, code: string): string {
     const cases = new Array(0x100)
         .fill(0)
         .map((_, i) => i)
@@ -110,7 +107,7 @@ function declareSubDispatcher(mode: Mode, code: string): string {
                     break;
         `
         )
-        .map((x) => indentString(x, 12))
+        .map((caseBlock) => indentString(caseBlock, 12))
         .join('\n\n');
 
     return (
@@ -137,9 +134,9 @@ function declareSubDispatcher(mode: Mode, code: string): string {
 }
 
 function subDispatcherName(mode: Mode): string {
-    return `dispatch_${(mode as number) >>> 8}`;
+    return `dispatch_${modeToString(mode)}`;
 }
 
 function instructionFunctionName(mode: Mode, opcode: number): string {
-    return `instr_${(mode as number) >>> 8}_${opcode.toString(16).padStart(2, '0')}`;
+    return `instr_${modeToString(mode)}_${opcode.toString(16).padStart(2, '0')}`;
 }

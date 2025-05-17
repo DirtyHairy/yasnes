@@ -6,25 +6,31 @@ import indentString from 'indent-string';
 import { outdent } from 'outdent';
 import { hex8 } from '../util';
 
-const instructions = new Array<Instruction>(0x500);
+const instructions = new Array<Instruction>(0x100);
 
 export const enum CompilationFlags {
     none = 0,
 }
 
+export interface DisassembleResult {
+    disassembly: string;
+    additionalBytes: number;
+    mode: Mode;
+}
+
 export interface Instruction {
-    disassemble(address: number, bus: Bus): [string, number];
-    compile(flags: number): string;
+    disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult;
+    compile(mode: Mode, flags: number): string;
 
     execute(state: State, bus: Bus, clock: Clock, breakCb: BreakCallback, flags?: number): void;
 }
 
-export function getInstruction(opcode: number, mode: Mode): Instruction {
-    return instructions[(mode as number) | opcode];
+export function getInstruction(opcode: number): Instruction {
+    return instructions[opcode];
 }
 
-export function registerInstruction(opcode: number, gen: (mode: Mode) => Instruction): void {
-    for (let i = 0; i <= 4; i++) instructions[(i << 8) | opcode] = gen((i << 8) as Mode);
+export function registerInstruction(opcode: number, instruction: Instruction): void {
+    instructions[opcode] = instruction;
 }
 
 type ExecFn = (state: State, bus: Bus, clock: Clock, breakCb: BreakCallback) => void;
@@ -78,41 +84,52 @@ class InstructionBase implements Instruction {
     constructor(private opcode: number) {}
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    disassemble(address: number, bus: Bus): [string, number] {
-        return [`not implemented: ${this.opcode}`, 0];
+    disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult {
+        return {
+            disassembly: `not implemented: ${this.opcode}`,
+            additionalBytes: 0,
+            mode,
+        };
     }
 
-    compile(flags: number): string {
+    compile(mode: Mode, flags: number): string {
         const builder = new CodeBuilder(flags);
 
-        this.build(builder);
+        this.build(mode, builder, flags);
 
         return builder.build();
     }
 
     execute(state: State, bus: Bus, clock: Clock, breakCb: BreakCallback, flags = CompilationFlags.none): void {
-        (eval(this.compile(flags)) as ExecFn)(state, bus, clock, breakCb);
+        (eval(this.compile(state.mode, flags)) as ExecFn)(state, bus, clock, breakCb);
     }
 
-    protected build(builder: CodeBuilder): void {
-        builder.then(`breakCb(${BreakReason.instructionFault}, 'instruction ${hex8(this.opcode)} not implemented');`);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    protected build(mode: Mode, builder: CodeBuilder, flags: CompilationFlags): void {
+        builder.then(outdent`
+            breakCb(${BreakReason.instructionFault}, 'instruction ${hex8(this.opcode)} not implemented');
+        `);
     }
 }
 
 class InstructionSEI extends InstructionBase {
-    disassemble(): [string, number] {
-        return ['SEI', 0];
+    disassemble(mode: Mode): DisassembleResult {
+        return {
+            disassembly: 'SEI',
+            additionalBytes: 0,
+            mode,
+        };
     }
 
-    protected build(builder: CodeBuilder): CodeBuilder {
+    protected build(mode: Mode, builder: CodeBuilder): CodeBuilder {
         return builder.then(`state.p |= ${Flag.i};`);
     }
 }
 
 export function registerInstructions(): void {
-    for (let i = 0; i < 0x500; i++) {
-        registerInstruction(i & 0xff, () => new InstructionBase(i & 0xff));
+    for (let i = 0; i < 0x100; i++) {
+        registerInstruction(i & 0xff, new InstructionBase(i));
     }
 
-    registerInstruction(0x78, () => new InstructionSEI(0x78));
+    registerInstruction(0x78, new InstructionSEI(0x78));
 }

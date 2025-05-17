@@ -1,3 +1,5 @@
+import { UnreachableCaseError } from 'ts-essentials';
+
 export const enum SlowPathReason {
     break = 0x01,
     modeChange = 0x02,
@@ -20,11 +22,11 @@ export interface State {
 }
 
 export const enum Mode {
-    mx = 0x000, // 16 bit acc, 16 bit memory
-    mX = 0x100, // 16 bit acc, 8 bit memory
-    Mx = 0x200, // 8 bit acc, 16 bit memory
-    MX = 0x300, // 8 bit acc, 8 bit memory
-    em = 0x400, // emulation
+    mx = 0x0, // 16 bit acc, 16 bit memory
+    mX = 0x1, // 16 bit acc, 8 bit memory
+    Mx = 0x2, // 8 bit acc, 16 bit memory
+    MX = 0x3, // 8 bit acc, 8 bit memory
+    em = 0x4, // emulation
 }
 
 export const enum Flag {
@@ -36,4 +38,32 @@ export const enum Flag {
     m = 0x20, // 16 bit acc
     v = 0x40, // overflow
     n = 0x80, // negative
+}
+
+export function flagsToString(flags: number): string {
+    const names = ['c', 'z', 'i', 'd', 'x', 'm', 'v', 'n'];
+
+    return names.map((name, i) => (flags & (1 << i) ? name.toUpperCase() : name)).join('');
+}
+
+export function modeToString(mode: Mode): string {
+    switch (mode) {
+        case Mode.mx:
+            return 'mx';
+
+        case Mode.mX:
+            return 'mX';
+
+        case Mode.Mx:
+            return 'Mx';
+
+        case Mode.MX:
+            return 'MX';
+
+        case Mode.em:
+            return 'em';
+
+        default:
+            throw new UnreachableCaseError(mode);
+    }
 }
