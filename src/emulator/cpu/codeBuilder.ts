@@ -88,7 +88,7 @@ export class CodeBuilder {
                 } else {
                     this.chunks.push(outdent`
                         ptr = (ptr + state.d + state.x) & 0xffff;
-                        clock.tickCpu();
+                        if (state.d & 0xff) clock.tickCpu();
                         `);
                 }
 
@@ -112,7 +112,7 @@ export class CodeBuilder {
                 } else {
                     this.chunks.push(outdent`
                         ptr = (ptr + state.d + state.y) & 0xffff;
-                        clock.tickCpu();
+                        if (state.d & 0xff) clock.tickCpu();
                         `);
                 }
 
