@@ -110,7 +110,8 @@ class InstructionBase implements Instruction {
             }
 
             default:
-                return { disassembly: `${mnemnonic} [addressing mode not implemented]`, additionalBytes: 0, mode };
+                // prettier-ignore
+                return { disassembly: `${mnemnonic} [${addressingMode} not implemented]`, additionalBytes: 0, mode };
         }
     }
 }
@@ -141,6 +142,29 @@ class InstructionWithAddressingMode extends InstructionBase {
     }
 }
 
+function is16M(mode: Mode): boolean {
+    switch (mode) {
+        case Mode.mX:
+        case Mode.mx:
+            return true;
+
+        default:
+            return false;
+    }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function is16X(mode: Mode): boolean {
+    switch (mode) {
+        case Mode.Mx:
+        case Mode.mx:
+            return true;
+
+        default:
+            return false;
+    }
+}
+
 // SEI - Set Interrupt Disable Flag
 class InstructionSEI extends InstructionImplied {
     constructor(opcode: number) {
@@ -162,7 +186,7 @@ class InstructionSTZ extends InstructionWithAddressingMode {
     }
 
     protected build(mode: Mode, builder: CodeBuilder): void {
-        builder.store('0', mode, this.addressingMode);
+        builder.store('0', mode, this.addressingMode, is16M(mode));
     }
 }
 
