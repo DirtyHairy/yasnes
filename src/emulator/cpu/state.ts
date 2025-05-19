@@ -68,3 +68,18 @@ export function modeToString(mode: Mode): string {
             throw new UnreachableCaseError(mode);
     }
 }
+
+export function copyState(dest: State, src: State): void {
+    dest.a = src.a;
+    dest.x = src.x;
+    dest.y = src.y;
+    dest.pc = src.pc;
+    dest.s = src.s;
+    dest.d = src.d;
+    dest.k = src.k;
+    dest.dbr = src.dbr;
+    dest.p = src.p;
+    dest.slowPath = src.slowPath;
+    dest.mode = src.mode;
+    dest.breakReason = src.breakReason;
+}

@@ -3,23 +3,29 @@ import { BreakCallback, BreakReason } from '../break';
 import { Bus } from '../bus';
 import { Clock } from '../clock';
 import { dispatcher } from './globals';
-import { flagsToString, Mode, SlowPathReason, State } from './state';
+import { copyState, flagsToString, Mode, SlowPathReason, State } from './state';
 import { hex16, hex8 } from '../util';
+
+const INITIAL_STATE: State = {
+    a: 0,
+    x: 0,
+    y: 0,
+    pc: 0,
+    s: 0x0100,
+    d: 0,
+    k: 0,
+    dbr: 0,
+    p: 0,
+    slowPath: 0,
+    mode: Mode.em,
+    breakReason: BreakReason.none,
+};
 
 export class Cpu {
     constructor(private bus: Bus, private clock: Clock) {}
 
     reset(): BreakReason {
-        this.state.a = 0;
-        this.state.x = 0;
-        this.state.y = 0;
-        this.state.s = 0x0100;
-        this.state.d = 0;
-        this.state.k = 0;
-        this.state.dbr = 0;
-        this.state.p = 0;
-        this.state.slowPath = 0;
-        this.state.mode = Mode.em;
+        copyState(this.state, INITIAL_STATE);
 
         this.clearBreak();
 
@@ -45,20 +51,7 @@ export class Cpu {
         `;
     }
 
-    readonly state: State = {
-        a: 0,
-        x: 0,
-        y: 0,
-        pc: 0,
-        s: 0x0100,
-        d: 0,
-        k: 0,
-        dbr: 0,
-        p: 0,
-        slowPath: 0,
-        mode: Mode.em,
-        breakReason: BreakReason.none,
-    };
+    readonly state: State = { ...INITIAL_STATE };
 
     private clearBreak(): void {
         this.state.breakReason = BreakReason.none;
