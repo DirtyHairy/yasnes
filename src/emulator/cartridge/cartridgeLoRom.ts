@@ -68,21 +68,21 @@ export class CartridgeLoRom implements Cartridge {
         return describeHeader(this.header);
     }
 
-    read(address: number): number {
+    read = (address: number): number => {
         const halfBank = this.halfBanks[address >>> 15];
 
         return halfBank.data[address & halfBank.mask];
-    }
+    };
 
-    write(address: number, value: number): void {
+    write = (address: number, value: number): void => {
         const halfBank = this.halfBanks[address >>> 15];
 
         if (halfBank.writable) halfBank.data[address & halfBank.mask] = value;
-    }
+    };
 
-    peek(address: number): number {
+    peek = (address: number): number => {
         return this.read(address);
-    }
+    };
 
     private layoutHalfBank(halfBankIndex: number, data: Uint8Array): HalfBank {
         // !!! we currently only support ROM sizes that are power of two !!!

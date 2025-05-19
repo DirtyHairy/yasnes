@@ -1,12 +1,28 @@
 import { Clock } from './clock';
 
 export class ClockSnes implements Clock {
+    // 21.5 MHz
     tickMaster(clocks: number): void {
         this.masterClockCycles += clocks;
     }
 
-    tickCpu(clocks: number): void {
-        this.tickMaster(clocks * 6);
+    // 1.78 MHz (joypad)
+    tick_div12(): void {
+        this.tickMaster(12);
+    }
+
+    // 2.66 MHz (slow ROM, WRAM, expansion)
+    tick_div8(): void {
+        this.tickMaster(8);
+    }
+
+    // 3.58 MHz (fast ROM, I/O)
+    tick_div6(): void {
+        this.tickMaster(6);
+    }
+
+    tickCpu(): void {
+        this.tick_div6();
     }
 
     resetMasterClockCycles(): void {

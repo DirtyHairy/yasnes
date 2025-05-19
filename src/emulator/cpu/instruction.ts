@@ -438,7 +438,7 @@ class InstructionSEI extends InstructionImplied {
     protected build(mode: Mode, builder: Compiler): Compiler {
         return builder.then(outdent`
             state.p |= ${Flag.i};
-            clock.tickCpu(1);
+            clock.tickCpu();
         `);
     }
 

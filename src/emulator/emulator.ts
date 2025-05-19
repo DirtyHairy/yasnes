@@ -16,8 +16,8 @@ export class Emulator {
         }
 
         this.wram = new Wram();
-        this.bus = new BusSnes(this.wram, this.cartridge);
         this.clock = new ClockSnes();
+        this.bus = new BusSnes(this.wram, this.cartridge, this.clock);
         this.cpu = new Cpu(this.bus, this.clock);
 
         this.reset();
