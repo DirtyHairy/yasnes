@@ -13,7 +13,7 @@ export class Cpu {
         this.state.a = 0;
         this.state.x = 0;
         this.state.y = 0;
-        this.state.s = 0;
+        this.state.s = 0x0100;
         this.state.d = 0;
         this.state.k = 0;
         this.state.dbr = 0;
@@ -50,7 +50,7 @@ export class Cpu {
         x: 0,
         y: 0,
         pc: 0,
-        s: 0,
+        s: 0x0100,
         d: 0,
         k: 0,
         dbr: 0,
