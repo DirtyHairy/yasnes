@@ -16,6 +16,7 @@ export interface Instruction {
     execute(state: State, bus: Bus, clock: Clock, breakCb: BreakCallback, flags?: number): void;
 
     get mnemonic(): string;
+    get addressingMode(): AddressingMode;
 }
 
 export function getInstruction(opcode: number): Instruction {
@@ -53,6 +54,7 @@ abstract class InstructionBase implements Instruction {
     }
 
     abstract readonly mnemonic: string;
+    abstract readonly addressingMode: AddressingMode;
 }
 
 // Base class for instructions with implied addressing mode
@@ -64,11 +66,13 @@ abstract class InstructionImplied extends InstructionBase {
             mode,
         };
     }
+
+    readonly addressingMode = AddressingMode.implied;
 }
 
 // Base class for instructions with various addressing modes
 abstract class InstructionWithAddressingMode extends InstructionBase {
-    constructor(opcode: number, protected addressingMode: AddressingMode) {
+    constructor(opcode: number, public readonly addressingMode: AddressingMode) {
         super(opcode);
     }
 
