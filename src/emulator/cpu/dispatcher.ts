@@ -3,9 +3,10 @@ import { BreakCallback, BreakReason } from '../break';
 import { Bus } from '../bus';
 import { Clock } from '../clock';
 import { Mode, modeToString, SlowPathReason, State } from './state';
-import { CompilationFlags, getInstruction } from './instruction';
+import { getInstruction } from './instruction';
 import indentString from 'indent-string';
 import { hex16, hex8 } from '../util';
+import { CompilationFlags } from './compiler';
 
 export type DispatcherFn = (
     instructionLimit: number,

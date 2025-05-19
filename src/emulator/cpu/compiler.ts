@@ -1,21 +1,25 @@
 import indentString from 'indent-string';
 import { outdent } from 'outdent';
-import { AddressingMode } from './instruction';
 import { Mode } from './state';
+import { AddressingMode } from './addressingMode';
+
+export const enum CompilationFlags {
+    none = 0,
+}
 
 const READ_PC = 'bus.read(state.k | state.pc, breakCb)';
 const INCREMENT_PC = 'state.pc = (state.pc + 1) & 0xffff';
 
-export class CodeBuilder {
+export class Compiler {
     constructor(private flags: number) {}
 
-    then(chunk: string): CodeBuilder {
+    then(chunk: string): Compiler {
         this.chunks.push(chunk);
 
         return this;
     }
 
-    loadPointer(mode: Mode, addressingMode: AddressingMode): CodeBuilder {
+    loadPointer(mode: Mode, addressingMode: AddressingMode): Compiler {
         switch (addressingMode) {
             case AddressingMode.abs:
                 this.chunks.push(outdent`
@@ -123,12 +127,12 @@ export class CodeBuilder {
         }
     }
 
-    store8ToPtr(value: string): CodeBuilder {
+    store8ToPtr(value: string): Compiler {
         this.chunks.push(`bus.write(ptr, ${value}, breakCb)`);
         return this;
     }
 
-    store16ToPtr(value: string): CodeBuilder {
+    store16ToPtr(value: string): Compiler {
         this.chunks.push(outdent`
                         bus.write(ptr, ${value} & 0xff, breakCb);
                         bus.write((ptr + 1) & 0xffffff, ${value} >>> 8, breakCb);
@@ -137,20 +141,20 @@ export class CodeBuilder {
         return this;
     }
 
-    store8(value: string, mode: Mode, addressingMode: AddressingMode): CodeBuilder {
+    store8(value: string, mode: Mode, addressingMode: AddressingMode): Compiler {
         return this.loadPointer(mode, addressingMode).store8ToPtr(value);
     }
 
-    store16(value: string, mode: Mode, addressingMode: AddressingMode): CodeBuilder {
+    store16(value: string, mode: Mode, addressingMode: AddressingMode): Compiler {
         return this.loadPointer(mode, addressingMode).store16ToPtr(value);
     }
 
-    store(value: string, mode: Mode, addressingMode: AddressingMode, is16: boolean): CodeBuilder {
+    store(value: string, mode: Mode, addressingMode: AddressingMode, is16: boolean): Compiler {
         if (is16) return this.store16(value, mode, addressingMode);
         else return this.store8(value, mode, addressingMode);
     }
 
-    build(): string {
+    compile(): string {
         return outdent`
         (state, bus, clock, breakCb) => {
             'use strict';

@@ -3,46 +3,12 @@ import { Flag, Mode, State } from './state';
 import { Clock } from '../clock';
 import { BreakCallback, BreakReason } from '../break';
 import { outdent } from 'outdent';
-import { hex16, hex8 } from '../util';
-import { CodeBuilder } from './codeBuilder';
+import { hex8 } from '../util';
+import { CompilationFlags, Compiler } from './compiler';
+import { DisassembleResult, disassembleWithAddressingMode } from './disassembler';
+import { AddressingMode } from './addressingMode';
 
 const instructions = new Array<Instruction>(0x100);
-
-export const enum CompilationFlags {
-    none = 0,
-}
-
-export const enum AddressingMode {
-    abs = 'abs', // $0000
-    abs_x = 'abs_x', // $0000,X
-    abs_y = 'abs_y', // $0000,Y
-    abs_16 = 'abs_16', // ($0000)
-    abs_24 = 'abs_24', // [$0000]
-    abs_x_16 = 'abs_x_16', //  ($0000,X)
-    direct = 'direct', // $00
-    direct_x = 'direct_x', // $00,X
-    direct_y = 'direct_y', // $00,Y
-    direct_16 = 'direct_16', // ($00)
-    direct_24 = 'direct_24', // [$00]
-    direct_x_16 = 'direct_x_16', // ($00,X)
-    direct_y_16 = 'direct_y_16', // ($00),Y
-    direct_y_24 = 'direct_y_24', // [$00],Y
-    imm = 'imm', // #$00
-    implied = 'implied',
-    long = 'long', // $000000
-    long_x = 'long_x', // $000000,X
-    rel8 = 'rel8', // $00 (8 bit PC-relative)
-    rel16 = 'rel16', // $0000 (16 bit PC-relative)
-    src_dest = 'src_dest', // $00,$00
-    stack = 'stack', // $00,S
-    stack_y = 'stack_y', // ($00,S),Y
-}
-
-export interface DisassembleResult {
-    disassembly: string;
-    additionalBytes: number;
-    mode: Mode;
-}
 
 export interface Instruction {
     disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult;
@@ -74,11 +40,11 @@ class InstructionBase implements Instruction {
     }
 
     compile(mode: Mode, flags: number): string {
-        const builder = new CodeBuilder(flags);
+        const builder = new Compiler(flags);
 
         this.build(mode, builder, flags);
 
-        return builder.build();
+        return builder.compile();
     }
 
     execute(state: State, bus: Bus, clock: Clock, breakCb: BreakCallback, flags = CompilationFlags.none): void {
@@ -86,42 +52,15 @@ class InstructionBase implements Instruction {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    protected build(mode: Mode, builder: CodeBuilder, flags: CompilationFlags): void {
+    protected build(mode: Mode, builder: Compiler, flags: CompilationFlags): void {
         builder.then(outdent`
             breakCb(${BreakReason.instructionFault}, 'instruction ${hex8(this.opcode)} not implemented');
         `);
     }
-
-    protected disassembleWithAddressingMode(
-        mnemnonic: string,
-        address: number,
-        addressingMode: AddressingMode,
-        mode: Mode,
-        bus: Bus
-    ): DisassembleResult {
-        switch (addressingMode) {
-            case AddressingMode.abs: {
-                let ptr = bus.peek(address);
-                address = (address & 0xff0000) | ((address + 1) & 0xffff);
-
-                ptr |= bus.peek(address) << 8;
-
-                return { disassembly: `${mnemnonic} ${hex16(ptr, '$')}`, additionalBytes: 2, mode };
-            }
-
-            default:
-                // prettier-ignore
-                return { disassembly: `${mnemnonic} [${addressingMode} not implemented]`, additionalBytes: 0, mode };
-        }
-    }
 }
 
 // Base class for instructions with implied addressing mode
-class InstructionImplied extends InstructionBase {
-    constructor(opcode: number, private mnemonic: string) {
-        super(opcode);
-    }
-
+abstract class InstructionImplied extends InstructionBase {
     disassemble(mode: Mode): DisassembleResult {
         return {
             disassembly: this.mnemonic,
@@ -129,20 +68,24 @@ class InstructionImplied extends InstructionBase {
             mode,
         };
     }
+
+    protected abstract readonly mnemonic: string;
 }
 
 // Base class for instructions with various addressing modes
-class InstructionWithAddressingMode extends InstructionBase {
-    constructor(opcode: number, protected mnemonic: string, protected addressingMode: AddressingMode) {
+abstract class InstructionWithAddressingMode extends InstructionBase {
+    constructor(opcode: number, protected addressingMode: AddressingMode) {
         super(opcode);
     }
 
     disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult {
-        return this.disassembleWithAddressingMode(this.mnemonic, address, this.addressingMode, mode, bus);
+        return disassembleWithAddressingMode(this.mnemonic, address, this.addressingMode, mode, bus);
     }
+
+    protected abstract readonly mnemonic: string;
 }
 
-function is16M(mode: Mode): boolean {
+function is16_M(mode: Mode): boolean {
     switch (mode) {
         case Mode.mX:
         case Mode.mx:
@@ -154,7 +97,7 @@ function is16M(mode: Mode): boolean {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function is16X(mode: Mode): boolean {
+function is16_X(mode: Mode): boolean {
     switch (mode) {
         case Mode.Mx:
         case Mode.mx:
@@ -165,645 +108,465 @@ function is16X(mode: Mode): boolean {
     }
 }
 
+// ADC - Add with Carry
+class InstructionADC extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'ADC';
+}
+
+// AND - Logical AND
+class InstructionAND extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'AND';
+}
+
+// ASL - Arithmetic Shift Left
+class InstructionASL extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'ASL';
+}
+
+// BCC - Branch if Carry Clear
+class InstructionBCC extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'BCC';
+}
+
+// BCS - Branch if Carry Set
+class InstructionBCS extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'BCS';
+}
+
+// BEQ - Branch if Equal
+class InstructionBEQ extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'BEQ';
+}
+
+// BIT - Bit Test
+class InstructionBIT extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'BIT';
+}
+
+// BMI - Branch if Minus
+class InstructionBMI extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'BMI';
+}
+
+// BNE - Branch if Not Equal
+class InstructionBNE extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'BNE';
+}
+
+// BPL - Branch if Plus
+class InstructionBPL extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'BPL';
+}
+
+// BRA - Branch Always
+class InstructionBRA extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'BRA';
+}
+
+// BRK - Break
+class InstructionBRK extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'BRK';
+}
+
+// BRL - Branch Long
+class InstructionBRL extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'BRL';
+}
+
+// BVC - Branch if Overflow Clear
+class InstructionBVC extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'BVC';
+}
+
+// BVS - Branch if Overflow Set
+class InstructionBVS extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'BVS';
+}
+
+// CLC - Clear Carry Flag
+class InstructionCLC extends InstructionImplied {
+    protected readonly mnemonic = 'CLC';
+}
+
+// CLD - Clear Decimal Mode
+class InstructionCLD extends InstructionImplied {
+    protected readonly mnemonic = 'CLD';
+}
+
+// CLI - Clear Interrupt Disable
+class InstructionCLI extends InstructionImplied {
+    protected readonly mnemonic = 'CLI';
+}
+
+// CLV - Clear Overflow Flag
+class InstructionCLV extends InstructionImplied {
+    protected readonly mnemonic = 'CLV';
+}
+
+// CMP - Compare
+class InstructionCMP extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'CMP';
+}
+
+// COP - Co-Processor
+class InstructionCOP extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'COP';
+}
+
+// CPX - Compare X Register
+class InstructionCPX extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'CPX';
+}
+
+// CPY - Compare Y Register
+class InstructionCPY extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'CPY';
+}
+
+// DEC - Decrement Memory
+class InstructionDEC extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'DEC';
+}
+
+// DEX - Decrement X Register
+class InstructionDEX extends InstructionImplied {
+    protected readonly mnemonic = 'DEX';
+}
+
+// DEY - Decrement Y Register
+class InstructionDEY extends InstructionImplied {
+    protected readonly mnemonic = 'DEY';
+}
+
+// EOR - Exclusive OR
+class InstructionEOR extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'EOR';
+}
+
+// INC - Increment Memory
+class InstructionINC extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'INC';
+}
+
+// INX - Increment X Register
+class InstructionINX extends InstructionImplied {
+    protected readonly mnemonic = 'INX';
+}
+
+// INY - Increment Y Register
+class InstructionINY extends InstructionImplied {
+    protected readonly mnemonic = 'INY';
+}
+
+// JMP - Jump
+class InstructionJMP extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'JMP';
+}
+
+// JSR - Jump to Subroutine
+class InstructionJSR extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'JSR';
+}
+
+// LDA - Load Accumulator
+class InstructionLDA extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'LDA';
+}
+
+// LDX - Load X Register
+class InstructionLDX extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'LDX';
+}
+
+// LDY - Load Y Register
+class InstructionLDY extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'LDY';
+}
+
+// LSR - Logical Shift Right
+class InstructionLSR extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'LSR';
+}
+
+// MVN - Block Move Negative
+class InstructionMVN extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'MVN';
+}
+
+// MVP - Block Move Positive
+class InstructionMVP extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'MVP';
+}
+
+// NOP - No Operation
+class InstructionNOP extends InstructionImplied {
+    protected readonly mnemonic = 'NOP';
+}
+
+// ORA - Logical OR
+class InstructionORA extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'ORA';
+}
+
+// PEA - Push Effective Absolute Address
+class InstructionPEA extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'PEA';
+}
+
+// PEI - Push Effective Indirect Address
+class InstructionPEI extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'PEI';
+}
+
+// PER - Push Effective PC Relative Indirect Address
+class InstructionPER extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'PER';
+}
+
+// PHA - Push Accumulator
+class InstructionPHA extends InstructionImplied {
+    protected readonly mnemonic = 'PHA';
+}
+
+// PHB - Push Data Bank Register
+class InstructionPHB extends InstructionImplied {
+    protected readonly mnemonic = 'PHB';
+}
+
+// PHD - Push Direct Page Register
+class InstructionPHD extends InstructionImplied {
+    protected readonly mnemonic = 'PHD';
+}
+
+// PHK - Push Program Bank Register
+class InstructionPHK extends InstructionImplied {
+    protected readonly mnemonic = 'PHK';
+}
+
+// PHP - Push Processor Status Register
+class InstructionPHP extends InstructionImplied {
+    protected readonly mnemonic = 'PHP';
+}
+
+// PHX - Push X Register
+class InstructionPHX extends InstructionImplied {
+    protected readonly mnemonic = 'PHX';
+}
+
+// PHY - Push Y Register
+class InstructionPHY extends InstructionImplied {
+    protected readonly mnemonic = 'PHY';
+}
+
+// PLA - Pull Accumulator
+class InstructionPLA extends InstructionImplied {
+    protected readonly mnemonic = 'PLA';
+}
+
+// PLB - Pull Data Bank Register
+class InstructionPLB extends InstructionImplied {
+    protected readonly mnemonic = 'PLB';
+}
+
+// PLD - Pull Direct Page Register
+class InstructionPLD extends InstructionImplied {
+    protected readonly mnemonic = 'PLD';
+}
+
+// PLP - Pull Processor Status Register
+class InstructionPLP extends InstructionImplied {
+    protected readonly mnemonic = 'PLP';
+}
+
+// PLX - Pull X Register
+class InstructionPLX extends InstructionImplied {
+    protected readonly mnemonic = 'PLX';
+}
+
+// PLY - Pull Y Register
+class InstructionPLY extends InstructionImplied {
+    protected readonly mnemonic = 'PLY';
+}
+
+// REP - Reset Processor Status Bits
+class InstructionREP extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'REP';
+}
+
+// ROL - Rotate Left
+class InstructionROL extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'ROL';
+}
+
+// ROR - Rotate Right
+class InstructionROR extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'ROR';
+}
+
+// RTI - Return from Interrupt
+class InstructionRTI extends InstructionImplied {
+    protected readonly mnemonic = 'RTI';
+}
+
+// RTL - Return from Subroutine Long
+class InstructionRTL extends InstructionImplied {
+    protected readonly mnemonic = 'RTL';
+}
+
+// RTS - Return from Subroutine
+class InstructionRTS extends InstructionImplied {
+    protected readonly mnemonic = 'RTS';
+}
+
+// SBC - Subtract with Carry
+class InstructionSBC extends InstructionWithAddressingMode {
+    protected readonly mnemonic = 'SBC';
+}
+
+// SEC - Set Carry Flag
+class InstructionSEC extends InstructionImplied {
+    protected readonly mnemonic = 'SEC';
+}
+
+// SED - Set Decimal Flag
+class InstructionSED extends InstructionImplied {
+    protected readonly mnemonic = 'SED';
+}
+
 // SEI - Set Interrupt Disable Flag
 class InstructionSEI extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'SEI');
-    }
-
-    protected build(mode: Mode, builder: CodeBuilder): CodeBuilder {
+    protected build(mode: Mode, builder: Compiler): Compiler {
         return builder.then(outdent`
             state.p |= ${Flag.i};
             clock.tickCpu(1);
         `);
     }
-}
 
-// STZ - Store Zero
-class InstructionSTZ extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'STZ', addressingMode);
-    }
-
-    protected build(mode: Mode, builder: CodeBuilder): void {
-        builder.store('0', mode, this.addressingMode, is16M(mode));
-    }
-}
-
-// ADC - Add with Carry
-class InstructionADC extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'ADC', addressingMode);
-    }
-}
-
-// AND - Logical AND
-class InstructionAND extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'AND', addressingMode);
-    }
-}
-
-// ASL - Arithmetic Shift Left
-class InstructionASL extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'ASL', addressingMode);
-    }
-}
-
-// BCC - Branch if Carry Clear
-class InstructionBCC extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'BCC', addressingMode);
-    }
-}
-
-// BCS - Branch if Carry Set
-class InstructionBCS extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'BCS', addressingMode);
-    }
-}
-
-// BEQ - Branch if Equal
-class InstructionBEQ extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'BEQ', addressingMode);
-    }
-}
-
-// BIT - Bit Test
-class InstructionBIT extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'BIT', addressingMode);
-    }
-}
-
-// BMI - Branch if Minus
-class InstructionBMI extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'BMI', addressingMode);
-    }
-}
-
-// BNE - Branch if Not Equal
-class InstructionBNE extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'BNE', addressingMode);
-    }
-}
-
-// BPL - Branch if Plus
-class InstructionBPL extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'BPL', addressingMode);
-    }
-}
-
-// BRA - Branch Always
-class InstructionBRA extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'BRA', addressingMode);
-    }
-}
-
-// BRK - Break
-class InstructionBRK extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'BRK', addressingMode);
-    }
-}
-
-// BRL - Branch Long
-class InstructionBRL extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'BRL', addressingMode);
-    }
-}
-
-// BVC - Branch if Overflow Clear
-class InstructionBVC extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'BVC', addressingMode);
-    }
-}
-
-// BVS - Branch if Overflow Set
-class InstructionBVS extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'BVS', addressingMode);
-    }
-}
-
-// CLC - Clear Carry Flag
-class InstructionCLC extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'CLC');
-    }
-}
-
-// CLD - Clear Decimal Mode
-class InstructionCLD extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'CLD');
-    }
-}
-
-// CLI - Clear Interrupt Disable
-class InstructionCLI extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'CLI');
-    }
-}
-
-// CLV - Clear Overflow Flag
-class InstructionCLV extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'CLV');
-    }
-}
-
-// CMP - Compare
-class InstructionCMP extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'CMP', addressingMode);
-    }
-}
-
-// COP - Co-Processor
-class InstructionCOP extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'COP', addressingMode);
-    }
-}
-
-// CPX - Compare X Register
-class InstructionCPX extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'CPX', addressingMode);
-    }
-}
-
-// CPY - Compare Y Register
-class InstructionCPY extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'CPY', addressingMode);
-    }
-}
-
-// DEC - Decrement Memory
-class InstructionDEC extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'DEC', addressingMode);
-    }
-}
-
-// DEX - Decrement X Register
-class InstructionDEX extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'DEX');
-    }
-}
-
-// DEY - Decrement Y Register
-class InstructionDEY extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'DEY');
-    }
-}
-
-// EOR - Exclusive OR
-class InstructionEOR extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'EOR', addressingMode);
-    }
-}
-
-// INC - Increment Memory
-class InstructionINC extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'INC', addressingMode);
-    }
-}
-
-// INX - Increment X Register
-class InstructionINX extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'INX');
-    }
-}
-
-// INY - Increment Y Register
-class InstructionINY extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'INY');
-    }
-}
-
-// JMP - Jump
-class InstructionJMP extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'JMP', addressingMode);
-    }
-}
-
-// JSR - Jump to Subroutine
-class InstructionJSR extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'JSR', addressingMode);
-    }
-}
-
-// LDA - Load Accumulator
-class InstructionLDA extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'LDA', addressingMode);
-    }
-}
-
-// LDX - Load X Register
-class InstructionLDX extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'LDX', addressingMode);
-    }
-}
-
-// LDY - Load Y Register
-class InstructionLDY extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'LDY', addressingMode);
-    }
-}
-
-// LSR - Logical Shift Right
-class InstructionLSR extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'LSR', addressingMode);
-    }
-}
-
-// MVN - Block Move Negative
-class InstructionMVN extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'MVN', addressingMode);
-    }
-}
-
-// MVP - Block Move Positive
-class InstructionMVP extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'MVP', addressingMode);
-    }
-}
-
-// NOP - No Operation
-class InstructionNOP extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'NOP');
-    }
-}
-
-// ORA - Logical OR
-class InstructionORA extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'ORA', addressingMode);
-    }
-}
-
-// PEA - Push Effective Absolute Address
-class InstructionPEA extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'PEA', addressingMode);
-    }
-}
-
-// PEI - Push Effective Indirect Address
-class InstructionPEI extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'PEI', addressingMode);
-    }
-}
-
-// PER - Push Effective PC Relative Indirect Address
-class InstructionPER extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'PER', addressingMode);
-    }
-}
-
-// PHA - Push Accumulator
-class InstructionPHA extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'PHA');
-    }
-}
-
-// PHB - Push Data Bank Register
-class InstructionPHB extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'PHB');
-    }
-}
-
-// PHD - Push Direct Page Register
-class InstructionPHD extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'PHD');
-    }
-}
-
-// PHK - Push Program Bank Register
-class InstructionPHK extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'PHK');
-    }
-}
-
-// PHP - Push Processor Status Register
-class InstructionPHP extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'PHP');
-    }
-}
-
-// PHX - Push X Register
-class InstructionPHX extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'PHX');
-    }
-}
-
-// PHY - Push Y Register
-class InstructionPHY extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'PHY');
-    }
-}
-
-// PLA - Pull Accumulator
-class InstructionPLA extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'PLA');
-    }
-}
-
-// PLB - Pull Data Bank Register
-class InstructionPLB extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'PLB');
-    }
-}
-
-// PLD - Pull Direct Page Register
-class InstructionPLD extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'PLD');
-    }
-}
-
-// PLP - Pull Processor Status Register
-class InstructionPLP extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'PLP');
-    }
-}
-
-// PLX - Pull X Register
-class InstructionPLX extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'PLX');
-    }
-}
-
-// PLY - Pull Y Register
-class InstructionPLY extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'PLY');
-    }
-}
-
-// REP - Reset Processor Status Bits
-class InstructionREP extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'REP', addressingMode);
-    }
-}
-
-// ROL - Rotate Left
-class InstructionROL extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'ROL', addressingMode);
-    }
-}
-
-// ROR - Rotate Right
-class InstructionROR extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'ROR', addressingMode);
-    }
-}
-
-// RTI - Return from Interrupt
-class InstructionRTI extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'RTI');
-    }
-}
-
-// RTL - Return from Subroutine Long
-class InstructionRTL extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'RTL');
-    }
-}
-
-// RTS - Return from Subroutine
-class InstructionRTS extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'RTS');
-    }
-}
-
-// SBC - Subtract with Carry
-class InstructionSBC extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'SBC', addressingMode);
-    }
-}
-
-// SEC - Set Carry Flag
-class InstructionSEC extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'SEC');
-    }
-}
-
-// SED - Set Decimal Flag
-class InstructionSED extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'SED');
-    }
+    protected readonly mnemonic = 'SEI';
 }
 
 // SEP - Set Processor Status Bits
 class InstructionSEP extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'SEP', addressingMode);
-    }
+    protected readonly mnemonic = 'SEP';
 }
 
 // STA - Store Accumulator
 class InstructionSTA extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'STA', addressingMode);
-    }
+    protected readonly mnemonic = 'STA';
 }
 
 // STP - Stop the Clock
 class InstructionSTP extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'STP');
-    }
+    protected readonly mnemonic = 'STP';
 }
 
 // STX - Store X Register
 class InstructionSTX extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'STX', addressingMode);
-    }
+    protected readonly mnemonic = 'STX';
 }
 
 // STY - Store Y Register
 class InstructionSTY extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'STY', addressingMode);
+    protected readonly mnemonic = 'STY';
+}
+
+// STZ - Store Zero
+class InstructionSTZ extends InstructionWithAddressingMode {
+    protected build(mode: Mode, builder: Compiler): void {
+        builder.store('0', mode, this.addressingMode, is16_M(mode));
     }
+
+    protected readonly mnemonic = 'STZ';
 }
 
 // TAX - Transfer Accumulator to X
 class InstructionTAX extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'TAX');
-    }
+    protected readonly mnemonic = 'TAX';
 }
 
 // TAY - Transfer Accumulator to Y
 class InstructionTAY extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'TAY');
-    }
+    protected readonly mnemonic = 'TAY';
 }
 
 // TCD - Transfer 16-bit Accumulator to Direct Page Register
 class InstructionTCD extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'TCD');
-    }
+    protected readonly mnemonic = 'TCD';
 }
 
 // TCS - Transfer 16-bit Accumulator to Stack Pointer
 class InstructionTCS extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'TCS');
-    }
+    protected readonly mnemonic = 'TCS';
 }
 
 // TDC - Transfer Direct Page Register to 16-bit Accumulator
 class InstructionTDC extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'TDC');
-    }
+    protected readonly mnemonic = 'TDC';
 }
 
 // TRB - Test and Reset Bits
 class InstructionTRB extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'TRB', addressingMode);
-    }
+    protected readonly mnemonic = 'TRB';
 }
 
 // TSB - Test and Set Bits
 class InstructionTSB extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'TSB', addressingMode);
-    }
+    protected readonly mnemonic = 'TSB';
 }
 
 // TSC - Transfer Stack Pointer to 16-bit Accumulator
 class InstructionTSC extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'TSC');
-    }
+    protected readonly mnemonic = 'TSC';
 }
 
 // TSX - Transfer Stack Pointer to X
 class InstructionTSX extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'TSX');
-    }
+    protected readonly mnemonic = 'TSX';
 }
 
 // TXA - Transfer X to Accumulator
 class InstructionTXA extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'TXA');
-    }
+    protected readonly mnemonic = 'TXA';
 }
 
 // TXS - Transfer X to Stack Pointer
 class InstructionTXS extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'TXS');
-    }
+    protected readonly mnemonic = 'TXS';
 }
 
 // TXY - Transfer X to Y
 class InstructionTXY extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'TXY');
-    }
+    protected readonly mnemonic = 'TXY';
 }
 
 // TYA - Transfer Y to Accumulator
 class InstructionTYA extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'TYA');
-    }
+    protected readonly mnemonic = 'TYA';
 }
 
 // TYX - Transfer Y to X
 class InstructionTYX extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'TYX');
-    }
+    protected readonly mnemonic = 'TYX';
 }
 
 // WAI - Wait for Interrupt
 class InstructionWAI extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'WAI');
-    }
+    protected readonly mnemonic = 'WAI';
 }
 
 // WDM - Reserved for Future Expansion
 class InstructionWDM extends InstructionWithAddressingMode {
-    constructor(opcode: number, addressingMode: AddressingMode) {
-        super(opcode, 'WDM', addressingMode);
-    }
+    protected readonly mnemonic = 'WDM';
 }
 
 // XBA - Exchange B and A Accumulators
 class InstructionXBA extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'XBA');
-    }
+    protected readonly mnemonic = 'XBA';
 }
 
 // XCE - Exchange Carry and Emulation Flags
 class InstructionXCE extends InstructionImplied {
-    constructor(opcode: number) {
-        super(opcode, 'XCE');
-    }
+    protected readonly mnemonic = 'XCE';
 }
 
 export function registerInstructions(): void {
