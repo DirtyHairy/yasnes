@@ -547,7 +547,7 @@ class InstructionWAI extends InstructionImplied {
 }
 
 // WDM - Reserved for Future Expansion
-class InstructionWDM extends InstructionWithAddressingMode {
+class InstructionWDM extends InstructionImplied {
     readonly mnemonic = 'WDM';
 }
 
@@ -990,7 +990,7 @@ export function registerInstructions(): void {
     registerInstruction(0xcb, new InstructionWAI(0xcb));
 
     // WDM - Reserved for Future Expansion
-    registerInstruction(0x42, new InstructionWDM(0x42, AddressingMode.implied));
+    registerInstruction(0x42, new InstructionWDM(0x42));
 
     // XBA - Exchange B and A Accumulators
     registerInstruction(0xeb, new InstructionXBA(0xeb));
