@@ -3,7 +3,6 @@ import { Flag, Mode, State } from './state';
 import { Clock } from '../clock';
 import { BreakCallback, BreakReason } from '../break';
 import { outdent } from 'outdent';
-import { hex8 } from '../util';
 import { CompilationFlags, Compiler } from './compiler';
 import { DisassembleResult, disassembleWithAddressingMode } from './disassembler';
 import { AddressingMode } from './addressingMode';
@@ -15,6 +14,8 @@ export interface Instruction {
     compile(mode: Mode, flags: number): string;
 
     execute(state: State, bus: Bus, clock: Clock, breakCb: BreakCallback, flags?: number): void;
+
+    get mnemonic(): string;
 }
 
 export function getInstruction(opcode: number): Instruction {
@@ -27,17 +28,10 @@ export function registerInstruction(opcode: number, instruction: Instruction): v
 
 type ExecFn = (state: State, bus: Bus, clock: Clock, breakCb: BreakCallback) => void;
 
-class InstructionBase implements Instruction {
+abstract class InstructionBase implements Instruction {
     constructor(protected opcode: number) {}
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult {
-        return {
-            disassembly: `D.B ${hex8(this.opcode)}`,
-            additionalBytes: 0,
-            mode,
-        };
-    }
+    abstract disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult;
 
     compile(mode: Mode, flags: number): string {
         const builder = new Compiler(flags);
@@ -54,9 +48,11 @@ class InstructionBase implements Instruction {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     protected build(mode: Mode, builder: Compiler, flags: CompilationFlags): void {
         builder.then(outdent`
-            breakCb(${BreakReason.instructionFault}, 'instruction ${hex8(this.opcode)} not implemented');
+            breakCb(${BreakReason.instructionFault}, '${this.mnemonic} not implemented');
         `);
     }
+
+    abstract readonly mnemonic: string;
 }
 
 // Base class for instructions with implied addressing mode
@@ -68,8 +64,6 @@ abstract class InstructionImplied extends InstructionBase {
             mode,
         };
     }
-
-    protected abstract readonly mnemonic: string;
 }
 
 // Base class for instructions with various addressing modes
@@ -81,8 +75,6 @@ abstract class InstructionWithAddressingMode extends InstructionBase {
     disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult {
         return disassembleWithAddressingMode(this.mnemonic, address, this.addressingMode, mode, bus);
     }
-
-    protected abstract readonly mnemonic: string;
 }
 
 function is16_M(mode: Mode): boolean {
@@ -110,327 +102,327 @@ function is16_X(mode: Mode): boolean {
 
 // ADC - Add with Carry
 class InstructionADC extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'ADC';
+    readonly mnemonic = 'ADC';
 }
 
 // AND - Logical AND
 class InstructionAND extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'AND';
+    readonly mnemonic = 'AND';
 }
 
 // ASL - Arithmetic Shift Left
 class InstructionASL extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'ASL';
+    readonly mnemonic = 'ASL';
 }
 
 // BCC - Branch if Carry Clear
 class InstructionBCC extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'BCC';
+    readonly mnemonic = 'BCC';
 }
 
 // BCS - Branch if Carry Set
 class InstructionBCS extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'BCS';
+    readonly mnemonic = 'BCS';
 }
 
 // BEQ - Branch if Equal
 class InstructionBEQ extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'BEQ';
+    readonly mnemonic = 'BEQ';
 }
 
 // BIT - Bit Test
 class InstructionBIT extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'BIT';
+    readonly mnemonic = 'BIT';
 }
 
 // BMI - Branch if Minus
 class InstructionBMI extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'BMI';
+    readonly mnemonic = 'BMI';
 }
 
 // BNE - Branch if Not Equal
 class InstructionBNE extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'BNE';
+    readonly mnemonic = 'BNE';
 }
 
 // BPL - Branch if Plus
 class InstructionBPL extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'BPL';
+    readonly mnemonic = 'BPL';
 }
 
 // BRA - Branch Always
 class InstructionBRA extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'BRA';
+    readonly mnemonic = 'BRA';
 }
 
 // BRK - Break
 class InstructionBRK extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'BRK';
+    readonly mnemonic = 'BRK';
 }
 
 // BRL - Branch Long
 class InstructionBRL extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'BRL';
+    readonly mnemonic = 'BRL';
 }
 
 // BVC - Branch if Overflow Clear
 class InstructionBVC extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'BVC';
+    readonly mnemonic = 'BVC';
 }
 
 // BVS - Branch if Overflow Set
 class InstructionBVS extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'BVS';
+    readonly mnemonic = 'BVS';
 }
 
 // CLC - Clear Carry Flag
 class InstructionCLC extends InstructionImplied {
-    protected readonly mnemonic = 'CLC';
+    readonly mnemonic = 'CLC';
 }
 
 // CLD - Clear Decimal Mode
 class InstructionCLD extends InstructionImplied {
-    protected readonly mnemonic = 'CLD';
+    readonly mnemonic = 'CLD';
 }
 
 // CLI - Clear Interrupt Disable
 class InstructionCLI extends InstructionImplied {
-    protected readonly mnemonic = 'CLI';
+    readonly mnemonic = 'CLI';
 }
 
 // CLV - Clear Overflow Flag
 class InstructionCLV extends InstructionImplied {
-    protected readonly mnemonic = 'CLV';
+    readonly mnemonic = 'CLV';
 }
 
 // CMP - Compare
 class InstructionCMP extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'CMP';
+    readonly mnemonic = 'CMP';
 }
 
 // COP - Co-Processor
 class InstructionCOP extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'COP';
+    readonly mnemonic = 'COP';
 }
 
 // CPX - Compare X Register
 class InstructionCPX extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'CPX';
+    readonly mnemonic = 'CPX';
 }
 
 // CPY - Compare Y Register
 class InstructionCPY extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'CPY';
+    readonly mnemonic = 'CPY';
 }
 
 // DEC - Decrement Memory
 class InstructionDEC extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'DEC';
+    readonly mnemonic = 'DEC';
 }
 
 // DEX - Decrement X Register
 class InstructionDEX extends InstructionImplied {
-    protected readonly mnemonic = 'DEX';
+    readonly mnemonic = 'DEX';
 }
 
 // DEY - Decrement Y Register
 class InstructionDEY extends InstructionImplied {
-    protected readonly mnemonic = 'DEY';
+    readonly mnemonic = 'DEY';
 }
 
 // EOR - Exclusive OR
 class InstructionEOR extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'EOR';
+    readonly mnemonic = 'EOR';
 }
 
 // INC - Increment Memory
 class InstructionINC extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'INC';
+    readonly mnemonic = 'INC';
 }
 
 // INX - Increment X Register
 class InstructionINX extends InstructionImplied {
-    protected readonly mnemonic = 'INX';
+    readonly mnemonic = 'INX';
 }
 
 // INY - Increment Y Register
 class InstructionINY extends InstructionImplied {
-    protected readonly mnemonic = 'INY';
+    readonly mnemonic = 'INY';
 }
 
 // JMP - Jump
 class InstructionJMP extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'JMP';
+    readonly mnemonic = 'JMP';
 }
 
 // JSR - Jump to Subroutine
 class InstructionJSR extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'JSR';
+    readonly mnemonic = 'JSR';
 }
 
 // LDA - Load Accumulator
 class InstructionLDA extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'LDA';
+    readonly mnemonic = 'LDA';
 }
 
 // LDX - Load X Register
 class InstructionLDX extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'LDX';
+    readonly mnemonic = 'LDX';
 }
 
 // LDY - Load Y Register
 class InstructionLDY extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'LDY';
+    readonly mnemonic = 'LDY';
 }
 
 // LSR - Logical Shift Right
 class InstructionLSR extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'LSR';
+    readonly mnemonic = 'LSR';
 }
 
 // MVN - Block Move Negative
 class InstructionMVN extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'MVN';
+    readonly mnemonic = 'MVN';
 }
 
 // MVP - Block Move Positive
 class InstructionMVP extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'MVP';
+    readonly mnemonic = 'MVP';
 }
 
 // NOP - No Operation
 class InstructionNOP extends InstructionImplied {
-    protected readonly mnemonic = 'NOP';
+    readonly mnemonic = 'NOP';
 }
 
 // ORA - Logical OR
 class InstructionORA extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'ORA';
+    readonly mnemonic = 'ORA';
 }
 
 // PEA - Push Effective Absolute Address
 class InstructionPEA extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'PEA';
+    readonly mnemonic = 'PEA';
 }
 
 // PEI - Push Effective Indirect Address
 class InstructionPEI extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'PEI';
+    readonly mnemonic = 'PEI';
 }
 
 // PER - Push Effective PC Relative Indirect Address
 class InstructionPER extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'PER';
+    readonly mnemonic = 'PER';
 }
 
 // PHA - Push Accumulator
 class InstructionPHA extends InstructionImplied {
-    protected readonly mnemonic = 'PHA';
+    readonly mnemonic = 'PHA';
 }
 
 // PHB - Push Data Bank Register
 class InstructionPHB extends InstructionImplied {
-    protected readonly mnemonic = 'PHB';
+    readonly mnemonic = 'PHB';
 }
 
 // PHD - Push Direct Page Register
 class InstructionPHD extends InstructionImplied {
-    protected readonly mnemonic = 'PHD';
+    readonly mnemonic = 'PHD';
 }
 
 // PHK - Push Program Bank Register
 class InstructionPHK extends InstructionImplied {
-    protected readonly mnemonic = 'PHK';
+    readonly mnemonic = 'PHK';
 }
 
 // PHP - Push Processor Status Register
 class InstructionPHP extends InstructionImplied {
-    protected readonly mnemonic = 'PHP';
+    readonly mnemonic = 'PHP';
 }
 
 // PHX - Push X Register
 class InstructionPHX extends InstructionImplied {
-    protected readonly mnemonic = 'PHX';
+    readonly mnemonic = 'PHX';
 }
 
 // PHY - Push Y Register
 class InstructionPHY extends InstructionImplied {
-    protected readonly mnemonic = 'PHY';
+    readonly mnemonic = 'PHY';
 }
 
 // PLA - Pull Accumulator
 class InstructionPLA extends InstructionImplied {
-    protected readonly mnemonic = 'PLA';
+    readonly mnemonic = 'PLA';
 }
 
 // PLB - Pull Data Bank Register
 class InstructionPLB extends InstructionImplied {
-    protected readonly mnemonic = 'PLB';
+    readonly mnemonic = 'PLB';
 }
 
 // PLD - Pull Direct Page Register
 class InstructionPLD extends InstructionImplied {
-    protected readonly mnemonic = 'PLD';
+    readonly mnemonic = 'PLD';
 }
 
 // PLP - Pull Processor Status Register
 class InstructionPLP extends InstructionImplied {
-    protected readonly mnemonic = 'PLP';
+    readonly mnemonic = 'PLP';
 }
 
 // PLX - Pull X Register
 class InstructionPLX extends InstructionImplied {
-    protected readonly mnemonic = 'PLX';
+    readonly mnemonic = 'PLX';
 }
 
 // PLY - Pull Y Register
 class InstructionPLY extends InstructionImplied {
-    protected readonly mnemonic = 'PLY';
+    readonly mnemonic = 'PLY';
 }
 
 // REP - Reset Processor Status Bits
 class InstructionREP extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'REP';
+    readonly mnemonic = 'REP';
 }
 
 // ROL - Rotate Left
 class InstructionROL extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'ROL';
+    readonly mnemonic = 'ROL';
 }
 
 // ROR - Rotate Right
 class InstructionROR extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'ROR';
+    readonly mnemonic = 'ROR';
 }
 
 // RTI - Return from Interrupt
 class InstructionRTI extends InstructionImplied {
-    protected readonly mnemonic = 'RTI';
+    readonly mnemonic = 'RTI';
 }
 
 // RTL - Return from Subroutine Long
 class InstructionRTL extends InstructionImplied {
-    protected readonly mnemonic = 'RTL';
+    readonly mnemonic = 'RTL';
 }
 
 // RTS - Return from Subroutine
 class InstructionRTS extends InstructionImplied {
-    protected readonly mnemonic = 'RTS';
+    readonly mnemonic = 'RTS';
 }
 
 // SBC - Subtract with Carry
 class InstructionSBC extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'SBC';
+    readonly mnemonic = 'SBC';
 }
 
 // SEC - Set Carry Flag
 class InstructionSEC extends InstructionImplied {
-    protected readonly mnemonic = 'SEC';
+    readonly mnemonic = 'SEC';
 }
 
 // SED - Set Decimal Flag
 class InstructionSED extends InstructionImplied {
-    protected readonly mnemonic = 'SED';
+    readonly mnemonic = 'SED';
 }
 
 // SEI - Set Interrupt Disable Flag
@@ -442,32 +434,32 @@ class InstructionSEI extends InstructionImplied {
         `);
     }
 
-    protected readonly mnemonic = 'SEI';
+    readonly mnemonic = 'SEI';
 }
 
 // SEP - Set Processor Status Bits
 class InstructionSEP extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'SEP';
+    readonly mnemonic = 'SEP';
 }
 
 // STA - Store Accumulator
 class InstructionSTA extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'STA';
+    readonly mnemonic = 'STA';
 }
 
 // STP - Stop the Clock
 class InstructionSTP extends InstructionImplied {
-    protected readonly mnemonic = 'STP';
+    readonly mnemonic = 'STP';
 }
 
 // STX - Store X Register
 class InstructionSTX extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'STX';
+    readonly mnemonic = 'STX';
 }
 
 // STY - Store Y Register
 class InstructionSTY extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'STY';
+    readonly mnemonic = 'STY';
 }
 
 // STZ - Store Zero
@@ -476,97 +468,97 @@ class InstructionSTZ extends InstructionWithAddressingMode {
         builder.store('0', mode, this.addressingMode, is16_M(mode));
     }
 
-    protected readonly mnemonic = 'STZ';
+    readonly mnemonic = 'STZ';
 }
 
 // TAX - Transfer Accumulator to X
 class InstructionTAX extends InstructionImplied {
-    protected readonly mnemonic = 'TAX';
+    readonly mnemonic = 'TAX';
 }
 
 // TAY - Transfer Accumulator to Y
 class InstructionTAY extends InstructionImplied {
-    protected readonly mnemonic = 'TAY';
+    readonly mnemonic = 'TAY';
 }
 
 // TCD - Transfer 16-bit Accumulator to Direct Page Register
 class InstructionTCD extends InstructionImplied {
-    protected readonly mnemonic = 'TCD';
+    readonly mnemonic = 'TCD';
 }
 
 // TCS - Transfer 16-bit Accumulator to Stack Pointer
 class InstructionTCS extends InstructionImplied {
-    protected readonly mnemonic = 'TCS';
+    readonly mnemonic = 'TCS';
 }
 
 // TDC - Transfer Direct Page Register to 16-bit Accumulator
 class InstructionTDC extends InstructionImplied {
-    protected readonly mnemonic = 'TDC';
+    readonly mnemonic = 'TDC';
 }
 
 // TRB - Test and Reset Bits
 class InstructionTRB extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'TRB';
+    readonly mnemonic = 'TRB';
 }
 
 // TSB - Test and Set Bits
 class InstructionTSB extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'TSB';
+    readonly mnemonic = 'TSB';
 }
 
 // TSC - Transfer Stack Pointer to 16-bit Accumulator
 class InstructionTSC extends InstructionImplied {
-    protected readonly mnemonic = 'TSC';
+    readonly mnemonic = 'TSC';
 }
 
 // TSX - Transfer Stack Pointer to X
 class InstructionTSX extends InstructionImplied {
-    protected readonly mnemonic = 'TSX';
+    readonly mnemonic = 'TSX';
 }
 
 // TXA - Transfer X to Accumulator
 class InstructionTXA extends InstructionImplied {
-    protected readonly mnemonic = 'TXA';
+    readonly mnemonic = 'TXA';
 }
 
 // TXS - Transfer X to Stack Pointer
 class InstructionTXS extends InstructionImplied {
-    protected readonly mnemonic = 'TXS';
+    readonly mnemonic = 'TXS';
 }
 
 // TXY - Transfer X to Y
 class InstructionTXY extends InstructionImplied {
-    protected readonly mnemonic = 'TXY';
+    readonly mnemonic = 'TXY';
 }
 
 // TYA - Transfer Y to Accumulator
 class InstructionTYA extends InstructionImplied {
-    protected readonly mnemonic = 'TYA';
+    readonly mnemonic = 'TYA';
 }
 
 // TYX - Transfer Y to X
 class InstructionTYX extends InstructionImplied {
-    protected readonly mnemonic = 'TYX';
+    readonly mnemonic = 'TYX';
 }
 
 // WAI - Wait for Interrupt
 class InstructionWAI extends InstructionImplied {
-    protected readonly mnemonic = 'WAI';
+    readonly mnemonic = 'WAI';
 }
 
 // WDM - Reserved for Future Expansion
 class InstructionWDM extends InstructionWithAddressingMode {
-    protected readonly mnemonic = 'WDM';
+    readonly mnemonic = 'WDM';
 }
 
 // XBA - Exchange B and A Accumulators
 class InstructionXBA extends InstructionImplied {
-    protected readonly mnemonic = 'XBA';
+    readonly mnemonic = 'XBA';
 }
 
 // XCE - Exchange Carry and Emulation Flags
 class InstructionXCE extends InstructionImplied {
-    protected readonly mnemonic = 'XCE';
+    readonly mnemonic = 'XCE';
 }
 
 export function registerInstructions(): void {

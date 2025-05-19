@@ -29,7 +29,7 @@ export function compileDispatcher(): DispatcherFn {
 }
 
 export function generateDispatcher(): string {
-    let code = `'use strict';\n`;
+    let code = `'use strict';\n\n`;
 
     code = generateInstructionFunctions(code);
 
@@ -50,11 +50,10 @@ function generateInstructionFunctions(code: string): string {
 
         code =
             code +
-            '\n' +
-            `const ${instructionFunctionName(mode, opcode)} = \n${indentString(
-                instruction.compile(mode, CompilationFlags.none),
-                4
-            )};\n`;
+            outdent`
+                // ${instruction.mnemonic}
+                const ${instructionFunctionName(mode, opcode)} =${instruction.compile(mode, CompilationFlags.none)};
+                \n\n`;
     }
 
     return code;
