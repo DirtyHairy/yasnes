@@ -51,6 +51,10 @@ function copyFixtureToState(state: State, fixture: FixtureState): void {
     state.mode = fixture.e > 0 ? Mode.em : (fixture.p >>> 4) & 0x03;
 
     if (state.mode === Mode.em) state.s = 0x0100 | (state.s & 0xff);
+    if (state.mode !== Mode.mx && state.mode !== Mode.Mx) {
+        state.x &= 0xff;
+        state.y &= 0xff;
+    }
 }
 
 function describeFixture(fixture: Fixture): string {
