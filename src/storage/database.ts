@@ -5,6 +5,8 @@ export type KVSItem = { key: 'rom'; value: Rom };
 export type KVSKey = KVSItem['key'];
 
 export class Database extends Dexie {
+    kvs!: Dexie.Table<KVSItem, KVSKey>;
+
     constructor() {
         super('yasnes-cli');
 
@@ -31,6 +33,4 @@ export class Database extends Dexie {
             console.log('failed to request persistent storage');
         }
     }
-
-    kvs!: Dexie.Table<KVSItem, KVSKey>;
 }

@@ -9,14 +9,13 @@ import { AddressingMode } from './addressingMode';
 const instructions = new Array<Instruction>(0x100);
 
 export interface Instruction {
-    disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult;
-    compile(mode: Mode, flags: number): string;
-
-    isImplemented(): boolean;
-    description(): string;
-
     get mnemonic(): string;
     get addressingMode(): AddressingMode;
+
+    disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult;
+    compile(mode: Mode, flags: number): string;
+    isImplemented(): boolean;
+    description(): string;
 }
 
 export function getInstruction(opcode: number): Instruction {
@@ -28,9 +27,10 @@ export function registerInstruction(opcode: number, instruction: Instruction): v
 }
 
 abstract class InstructionBase implements Instruction {
-    constructor(protected opcode: number) {}
+    abstract readonly mnemonic: string;
+    abstract readonly addressingMode: AddressingMode;
 
-    abstract disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult;
+    constructor(protected opcode: number) {}
 
     compile(mode: Mode, flags: number): string {
         const builder = new Compiler(flags);
@@ -55,12 +55,13 @@ abstract class InstructionBase implements Instruction {
         `);
     }
 
-    abstract readonly mnemonic: string;
-    abstract readonly addressingMode: AddressingMode;
+    abstract disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult;
 }
 
 // Base class for instructions with implied addressing mode
 abstract class InstructionImplied extends InstructionBase {
+    readonly addressingMode = AddressingMode.implied;
+
     disassemble(mode: Mode): DisassembleResult {
         return {
             disassembly: this.mnemonic,
@@ -68,8 +69,6 @@ abstract class InstructionImplied extends InstructionBase {
             mode,
         };
     }
-
-    readonly addressingMode = AddressingMode.implied;
 }
 
 // Base class for instructions with various addressing modes
@@ -433,14 +432,14 @@ class InstructionSED extends InstructionImplied {
 
 // SEI - Set Interrupt Disable Flag
 class InstructionSEI extends InstructionImplied {
+    readonly mnemonic = 'SEI';
+
     protected build(mode: Mode, builder: Compiler): Compiler {
         return builder.then(outdent`
             state.p |= ${Flag.i};
             clock.tickCpu();
         `);
     }
-
-    readonly mnemonic = 'SEI';
 }
 
 // SEP - Set Processor Status Bits
@@ -470,11 +469,11 @@ class InstructionSTY extends InstructionWithAddressingMode {
 
 // STZ - Store Zero
 class InstructionSTZ extends InstructionWithAddressingMode {
+    readonly mnemonic = 'STZ';
+
     protected build(mode: Mode, builder: Compiler): void {
         builder.store('0', mode, this.addressingMode, is16_M(mode));
     }
-
-    readonly mnemonic = 'STZ';
 }
 
 // TAX - Transfer Accumulator to X

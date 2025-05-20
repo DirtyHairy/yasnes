@@ -16,7 +16,15 @@ interface SystemAreaLocation {
 }
 
 export class BusSnes implements Bus {
-    constructor(private wram: Wram, private cartridge: Cartridge, private clock: ClockSnes) {
+    private lastValue = 0;
+    private fastRom = false;
+    private systemArea = new Array<SystemAreaLocation>(0x8000);
+
+    constructor(
+        private wram: Wram,
+        private cartridge: Cartridge,
+        private clock: ClockSnes,
+    ) {
         const readFn: ReadFn = (_, lastValue) => lastValue;
         const writeFn: WriteFn = () => undefined;
         const peekFn: PeekFn = () => 0;
@@ -102,9 +110,4 @@ export class BusSnes implements Bus {
                 break;
         }
     }
-
-    private lastValue = 0;
-    private fastRom = false;
-
-    private systemArea = new Array<SystemAreaLocation>(0x8000);
 }

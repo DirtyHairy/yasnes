@@ -8,6 +8,12 @@ import { describeError } from './util';
 import { Wram } from './wram';
 
 export class Emulator {
+    private cartridge: Cartridge;
+    private wram: Wram;
+    private bus: BusSnes;
+    private clock: ClockSnes;
+    private cpu: Cpu;
+
     constructor(cartridgeData: Uint8Array) {
         try {
             this.cartridge = new CartridgeLoRom(cartridgeData);
@@ -46,10 +52,4 @@ export class Emulator {
     getClock(): ClockSnes {
         return this.clock;
     }
-
-    private cartridge: Cartridge;
-    private wram: Wram;
-    private bus: BusSnes;
-    private clock: ClockSnes;
-    private cpu: Cpu;
 }

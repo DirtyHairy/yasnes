@@ -1,6 +1,8 @@
 import { Clock } from './clock';
 
 export class ClockSnes implements Clock {
+    private masterClockCycles = 0;
+
     // 21.5 MHz
     tickMaster(clocks: number): void {
         this.masterClockCycles += clocks;
@@ -36,6 +38,4 @@ export class ClockSnes implements Clock {
     getMasterClockCycles(): number {
         return this.masterClockCycles;
     }
-
-    private masterClockCycles = 0;
 }

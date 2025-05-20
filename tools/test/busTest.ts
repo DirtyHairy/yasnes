@@ -3,6 +3,9 @@ import { Clock } from '../../src/emulator/clock';
 import { hex24, hex8 } from '../../src/emulator/util';
 
 export class BusTest implements Bus {
+    private memory = new Uint8Array(0x1000000);
+    private dirtyAddresses = new Set<number>();
+
     constructor(private clock: Clock) {}
 
     read(address: number): number {
@@ -45,7 +48,4 @@ export class BusTest implements Bus {
                 throw new Error(`address ${hex24(addr)}: expected ${hex8(value)}, got ${hex8(this.memory[addr])}`);
         }
     }
-
-    private memory = new Uint8Array(0x1000000);
-    private dirtyAddresses = new Set<number>();
 }

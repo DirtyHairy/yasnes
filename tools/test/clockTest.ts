@@ -1,6 +1,8 @@
 import { Clock } from '../../src/emulator/clock';
 
 export class ClockTest implements Clock {
+    private ticks = 0;
+
     tickMaster(clocks: number): void {
         this.ticks += clocks;
     }
@@ -20,6 +22,4 @@ export class ClockTest implements Clock {
     reset(): void {
         this.ticks = 0;
     }
-
-    private ticks = 0;
 }

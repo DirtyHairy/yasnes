@@ -11,6 +11,8 @@ const READ_PC = 'bus.read(state.k | state.pc, breakCb)';
 const INCREMENT_PC = 'state.pc = (state.pc + 1) & 0xffff';
 
 export class Compiler {
+    chunks: Array<string> = [];
+
     constructor(private flags: number) {}
 
     then(chunk: string): Compiler {
@@ -182,6 +184,4 @@ export class Compiler {
         }
         `;
     }
-
-    chunks: Array<string> = [];
 }

@@ -77,7 +77,7 @@ function loadSuite(suite: Suite): Array<Fixture> {
     const name = suite.opcode.toString(16).padStart(2, '0') + (suite.emulation ? '.e' : '.n') + '.json';
 
     return JSON.parse(
-        readFileSync(path.join(__dirname, '..', '..', 'test', '65816_suite', 'v1', name), 'utf-8')
+        readFileSync(path.join(__dirname, '..', '..', 'test', '65816_suite', 'v1', name), 'utf-8'),
     ) as Array<Fixture>;
 }
 
@@ -91,6 +91,11 @@ function describeError(e: any): string {
 }
 
 export class TestRunner {
+    private finalState = { ...INITIAL_STATE };
+    private bus: BusTest;
+    private clock: ClockTest;
+    private cpu: Cpu;
+
     constructor() {
         this.clock = new ClockTest();
         this.bus = new BusTest(this.clock);
@@ -181,9 +186,4 @@ export class TestRunner {
             throw new Error(`expected ${fixture.cycles.length} cycles, got ${this.clock.getTicks()} cycles`);
         }
     }
-
-    private finalState = { ...INITIAL_STATE };
-    private bus: BusTest;
-    private clock: ClockTest;
-    private cpu: Cpu;
 }

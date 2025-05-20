@@ -13,6 +13,10 @@ interface HalfBank {
 }
 
 export class CartridgeLoRom implements Cartridge {
+    private header: RomHeader;
+    private ram: Uint8Array;
+    private halfBanks = new Array<HalfBank>(512);
+
     constructor(data: Uint8Array) {
         if (data.length % 0x8000 !== 0 && (data.length - 512) % 0x8000 === 0) {
             data = data.subarray(512);
@@ -169,8 +173,4 @@ export class CartridgeLoRom implements Cartridge {
             }
         }
     }
-
-    private header: RomHeader;
-    private ram: Uint8Array;
-    private halfBanks = new Array<HalfBank>(512);
 }

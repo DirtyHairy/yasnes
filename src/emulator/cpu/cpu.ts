@@ -5,6 +5,9 @@ import { dispatcher } from './globals';
 import { copyState, INITIAL_STATE, SlowPathReason, State, stateToString } from './state';
 
 export class Cpu {
+    readonly state: State = { ...INITIAL_STATE };
+    private breakMessage = '';
+
     constructor(private bus: Bus, private clock: Clock) {}
 
     reset(): BreakReason {
@@ -30,8 +33,6 @@ export class Cpu {
         return stateToString(this.state);
     }
 
-    readonly state: State = { ...INITIAL_STATE };
-
     private clearBreak(): void {
         this.state.breakReason = BreakReason.none;
     }
@@ -44,6 +45,4 @@ export class Cpu {
 
         this.state.slowPath |= SlowPathReason.break;
     };
-
-    private breakMessage = '';
 }
