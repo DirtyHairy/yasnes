@@ -51,8 +51,8 @@ function generateInstructionFunctions(code: string): string {
         code =
             code +
             outdent`
-                // ${instruction.mnemonic} ${instruction.addressingMode}
-                const ${instructionFunctionName(mode, opcode)} =${instruction.compile(mode, CompilationFlags.none)};
+                // ${instruction.description()}
+                const ${instructionFunctionName(mode, opcode)} = ${instruction.compile(mode, CompilationFlags.none)};
                 \n\n`;
     }
 

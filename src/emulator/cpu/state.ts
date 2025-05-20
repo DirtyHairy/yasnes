@@ -1,5 +1,22 @@
 import { UnreachableCaseError } from 'ts-essentials';
 import { BreakReason } from '../break';
+import { outdent } from 'outdent';
+import { hex16, hex8 } from '../util';
+
+export const INITIAL_STATE: State = {
+    a: 0,
+    x: 0,
+    y: 0,
+    pc: 0,
+    s: 0x0100,
+    d: 0,
+    k: 0,
+    dbr: 0,
+    p: 0,
+    slowPath: 0,
+    mode: Mode.em,
+    breakReason: BreakReason.none,
+};
 
 export const enum SlowPathReason {
     break = 0x01,
@@ -82,4 +99,30 @@ export function copyState(dest: State, src: State): void {
     dest.slowPath = src.slowPath;
     dest.mode = src.mode;
     dest.breakReason = src.breakReason;
+}
+
+export function compareState(state1: State, state2: State): boolean {
+    // Compare all fields of the state objects
+    return (
+        state1.a === state2.a &&
+        state1.x === state2.x &&
+        state1.y === state2.y &&
+        state1.pc === state2.pc &&
+        state1.s === state2.s &&
+        state1.d === state2.d &&
+        state1.k === state2.k &&
+        state1.dbr === state2.dbr &&
+        state1.p === state2.p &&
+        state1.slowPath === state2.slowPath &&
+        state1.mode === state2.mode &&
+        state1.breakReason === state2.breakReason
+    );
+}
+
+export function stateToString(state: State): string {
+    // prettier-ignore
+    return outdent`
+            A: ${hex16(state.a)}    X: ${hex16(state.x)}    Y: ${hex16(state.y)}    S: ${hex16(state.s)}    PC: ${hex16(state.pc)}
+            K: ${hex8(state.k >> 16)}      D: ${hex8(state.d)}      DBR: ${hex8(state.dbr >> 16)}    flags: ${flagsToString(state.p)}${(state.mode === Mode.em) ? ' (e)' : ''}
+        `;
 }

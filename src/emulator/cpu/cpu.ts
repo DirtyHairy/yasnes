@@ -1,25 +1,8 @@
-import { outdent } from 'outdent';
 import { BreakCallback, BreakReason } from '../break';
 import { Bus } from '../bus';
 import { Clock } from '../clock';
 import { dispatcher } from './globals';
-import { copyState, flagsToString, Mode, SlowPathReason, State } from './state';
-import { hex16, hex8 } from '../util';
-
-const INITIAL_STATE: State = {
-    a: 0,
-    x: 0,
-    y: 0,
-    pc: 0,
-    s: 0x0100,
-    d: 0,
-    k: 0,
-    dbr: 0,
-    p: 0,
-    slowPath: 0,
-    mode: Mode.em,
-    breakReason: BreakReason.none,
-};
+import { copyState, INITIAL_STATE, SlowPathReason, State, stateToString } from './state';
 
 export class Cpu {
     constructor(private bus: Bus, private clock: Clock) {}
@@ -44,11 +27,7 @@ export class Cpu {
     }
 
     describeState(): string {
-        // prettier-ignore
-        return outdent`
-            A: ${hex16(this.state.a)}    X: ${hex16(this.state.x)}    Y: ${hex16(this.state.y)}    S: ${hex16(this.state.s)}    PC: ${hex16(this.state.pc)}
-            K: ${hex8(this.state.k >> 16)}      D: ${hex8(this.state.d >> 16)}      DBR: ${hex8(this.state.dbr)}    flags: ${flagsToString(this.state.p)}${(this.state.mode === Mode.em) ? ' (e)' : ''}
-        `;
+        return stateToString(this.state);
     }
 
     readonly state: State = { ...INITIAL_STATE };

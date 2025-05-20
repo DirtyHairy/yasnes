@@ -15,6 +15,9 @@ export interface Instruction {
 
     execute(state: State, bus: Bus, clock: Clock, breakCb: BreakCallback, flags?: number): void;
 
+    isImplemented(): boolean;
+    description(): string;
+
     get mnemonic(): string;
     get addressingMode(): AddressingMode;
 }
@@ -44,6 +47,14 @@ abstract class InstructionBase implements Instruction {
 
     execute(state: State, bus: Bus, clock: Clock, breakCb: BreakCallback, flags = CompilationFlags.none): void {
         (eval(this.compile(state.mode, flags)) as ExecFn)(state, bus, clock, breakCb);
+    }
+
+    isImplemented(): boolean {
+        return this.build !== InstructionBase.prototype.build;
+    }
+
+    description(): string {
+        return this.mnemonic + ' ' + this.addressingMode;
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
