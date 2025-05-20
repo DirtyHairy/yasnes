@@ -1,7 +1,6 @@
 import { Bus } from '../bus';
-import { Flag, Mode, State } from './state';
-import { Clock } from '../clock';
-import { BreakCallback, BreakReason } from '../break';
+import { Flag, Mode } from './state';
+import { BreakReason } from '../break';
 import { outdent } from 'outdent';
 import { CompilationFlags, Compiler } from './compiler';
 import { DisassembleResult, disassembleWithAddressingMode } from './disassembler';
@@ -12,8 +11,6 @@ const instructions = new Array<Instruction>(0x100);
 export interface Instruction {
     disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult;
     compile(mode: Mode, flags: number): string;
-
-    execute(state: State, bus: Bus, clock: Clock, breakCb: BreakCallback, flags?: number): void;
 
     isImplemented(): boolean;
     description(): string;
@@ -30,8 +27,6 @@ export function registerInstruction(opcode: number, instruction: Instruction): v
     instructions[opcode] = instruction;
 }
 
-type ExecFn = (state: State, bus: Bus, clock: Clock, breakCb: BreakCallback) => void;
-
 abstract class InstructionBase implements Instruction {
     constructor(protected opcode: number) {}
 
@@ -43,10 +38,6 @@ abstract class InstructionBase implements Instruction {
         this.build(mode, builder, flags);
 
         return builder.compile();
-    }
-
-    execute(state: State, bus: Bus, clock: Clock, breakCb: BreakCallback, flags = CompilationFlags.none): void {
-        (eval(this.compile(state.mode, flags)) as ExecFn)(state, bus, clock, breakCb);
     }
 
     isImplemented(): boolean {
