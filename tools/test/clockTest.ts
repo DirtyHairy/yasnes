@@ -9,6 +9,10 @@ export class ClockTest implements Clock {
         this.ticks++;
     }
 
+    tickCpu_N(ticks: number): void {
+        this.ticks += ticks;
+    }
+
     getTicks(): number {
         return this.ticks;
     }

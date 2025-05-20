@@ -879,6 +879,13 @@
   dependencies:
     "@types/node" "*"
 
+"@types/colors@^1.2.4":
+  version "1.2.4"
+  resolved "https://registry.yarnpkg.com/@types/colors/-/colors-1.2.4.tgz#f0c82736cda074f908c724c7846886a5de962e15"
+  integrity sha512-oSQxEVIDcYisAzWLa+wr50GSIPu8ml4PsKNJzgrDX3SmEHVBBqbaUurqsUceFauNlCRxNtENKkQm3yOe3m3nfg==
+  dependencies:
+    colors "*"
+
 "@types/connect-history-api-fallback@^1.5.4":
   version "1.5.4"
   resolved "https://registry.yarnpkg.com/@types/connect-history-api-fallback/-/connect-history-api-fallback-1.5.4.tgz#7de71645a103056b48ac3ce07b3520b819c1d5b3"
@@ -1772,6 +1779,11 @@ colorette@^2.0.10, colorette@^2.0.14:
   version "2.0.20"
   resolved "https://registry.yarnpkg.com/colorette/-/colorette-2.0.20.tgz#9eb793e6833067f7235902fcd3b09917a000a95a"
   integrity sha512-IfEDxwoWIjkeXL1eXcDiow4UbKjhLdq6/EuSVR9GMN7KVH3r9gQ83e73hsz1Nd1T3ijd5xv1wcWRYO+D6kCI2w==
+
+colors@*, colors@^1.4.0:
+  version "1.4.0"
+  resolved "https://registry.yarnpkg.com/colors/-/colors-1.4.0.tgz#c50491479d4c1bdaed2c9ced32cf7c7dc2360f78"
+  integrity sha512-a+UqTh4kgZg/SlGvfbzDHpgRu7AAQOmmqRHJnxhRZICKFUT91brVhNNt58CMWU9PsBbv3PDCZUHbVxuDiH2mtA==
 
 combined-stream@^1.0.8:
   version "1.0.8"

@@ -123,6 +123,6 @@ export function stateToString(state: State): string {
     // prettier-ignore
     return outdent`
             A: ${hex16(state.a)}    X: ${hex16(state.x)}    Y: ${hex16(state.y)}    S: ${hex16(state.s)}    PC: ${hex16(state.pc)}
-            K: ${hex8(state.k >> 16)}      D: ${hex8(state.d)}      DBR: ${hex8(state.dbr >> 16)}    flags: ${flagsToString(state.p)}${(state.mode === Mode.em) ? ' (e)' : ''}
+            D: ${hex16(state.d)}    K: ${hex8(state.k >> 16)}      DBR: ${hex8(state.dbr >> 16)}    flags: ${flagsToString(state.p)}${(state.mode === Mode.em) ? ' (em)' : '(nt)'}
         `;
 }

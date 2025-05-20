@@ -10,12 +10,15 @@
         "start": "webpack serve --mode development",
         "lint": "eslint src",
         "test": "jest",
-        "generate-dispatcher": "tsx tools/generate-dispatcher.ts generated/dispatcher.js"
+        "generate-dispatcher": "tsx tools/generate-dispatcher.ts generated/dispatcher.js",
+        "cpu-test": "tsx tools/cpu-test.ts"
     },
     "devDependencies": {
+        "@types/colors": "^1.2.4",
         "@types/jest": "^29.5.5",
         "@types/jquery": "^3.5.32",
         "@types/node": "^22.15.17",
+        "colors": "^1.4.0",
         "copy-webpack-plugin": "^13.0.0",
         "css-loader": "^7.1.2",
         "dexie": "^4.0.11",

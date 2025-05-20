@@ -49,6 +49,8 @@ function copyFixtureToState(state: State, fixture: FixtureState): void {
     state.breakReason = BreakReason.none;
     state.slowPath = 0;
     state.mode = fixture.e > 0 ? Mode.em : (fixture.p >>> 4) & 0x03;
+
+    if (state.mode === Mode.em) state.s = 0x0100 | (state.s & 0xff);
 }
 
 function describeFixture(fixture: Fixture): string {

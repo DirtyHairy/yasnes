@@ -22,7 +22,11 @@ export class ClockSnes implements Clock {
     }
 
     tickCpu(): void {
-        this.tick_div6();
+        this.tickMaster(6);
+    }
+
+    tickCpu_N(ticks: number): void {
+        this.tickMaster(6 * ticks);
     }
 
     resetMasterClockCycles(): void {

@@ -43,8 +43,9 @@ export class Compiler {
                     ${INCREMENT_PC};
 
                     ptr |= state.dbr;
-
                     ptr = (ptr + state.x) & 0xffffff;
+
+                    clock.tickCpu();
                     `);
 
                 return this;
@@ -58,8 +59,9 @@ export class Compiler {
                     ${INCREMENT_PC};
 
                     ptr |= state.dbr;
-
                     ptr = (ptr + state.y) & 0xffffff;
+
+                    clock.tickCpu();
                     `);
 
                 return this;
@@ -84,15 +86,17 @@ export class Compiler {
                     this.chunks.push(outdent`
                         if (state.d & 0xff) {
                             ptr = (ptr + state.d + state.x) & 0xffff;
-                            clock.tickCpu();
+                            clock.tickCpu_N(2);
                         } else {
-                            ptr = ((ptr + x) & 0xff) | state.d;
+                            ptr = ((ptr + state.x) & 0xff) | state.d;
+                            clock.tickCpu();
                         }
                         `);
                 } else {
                     this.chunks.push(outdent`
                         ptr = (ptr + state.d + state.x) & 0xffff;
-                        if (state.d & 0xff) clock.tickCpu();
+                        if (state.d & 0xff) clock.tickCpu_N(2);
+                        else clock.tickCpu();
                         `);
                 }
 
@@ -108,15 +112,17 @@ export class Compiler {
                     this.chunks.push(outdent`
                         if (state.d & 0xff) {
                             ptr = (ptr + state.d + state.y) & 0xffff;
-                            clock.tickCpu();
+                            clock.tickCpu_N(2);
                         } else {
-                            ptr = ((ptr + y) & 0xff) | state.d;
+                            ptr = ((ptr + state.y) & 0xff) | state.d;
+                            clock.tickCpu();
                         }
                         `);
                 } else {
                     this.chunks.push(outdent`
                         ptr = (ptr + state.d + state.y) & 0xffff;
-                        if (state.d & 0xff) clock.tickCpu();
+                        if (state.d & 0xff) clock.tickCpu_N(2);
+                        else clock.tickCpu();
                         `);
                 }
 
@@ -132,13 +138,26 @@ export class Compiler {
         return this;
     }
 
-    store16ToPtr(value: string): Compiler {
-        this.chunks.push(outdent`
+    store16ToPtr(value: string, addressingMode: AddressingMode): Compiler {
+        switch (addressingMode) {
+            case AddressingMode.direct:
+            case AddressingMode.direct_x:
+            case AddressingMode.direct_y:
+                this.chunks.push(outdent`
+                        bus.write(ptr, ${value} & 0xff, breakCb);
+                        bus.write((ptr + 1) & 0xffff, ${value} >>> 8, breakCb);
+                    `);
+
+                return this;
+
+            default:
+                this.chunks.push(outdent`
                         bus.write(ptr, ${value} & 0xff, breakCb);
                         bus.write((ptr + 1) & 0xffffff, ${value} >>> 8, breakCb);
                     `);
 
-        return this;
+                return this;
+        }
     }
 
     store8(value: string, mode: Mode, addressingMode: AddressingMode): Compiler {
@@ -146,7 +165,7 @@ export class Compiler {
     }
 
     store16(value: string, mode: Mode, addressingMode: AddressingMode): Compiler {
-        return this.loadPointer(mode, addressingMode).store16ToPtr(value);
+        return this.loadPointer(mode, addressingMode).store16ToPtr(value, addressingMode);
     }
 
     store(value: string, mode: Mode, addressingMode: AddressingMode, is16: boolean): Compiler {
