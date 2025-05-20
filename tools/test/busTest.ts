@@ -13,7 +13,7 @@ export class BusTest implements Bus {
     write(address: number, value: number): void {
         this.clock.tickMaster(1);
         this.memory[address] = value;
-        this.writeLog.add(address);
+        this.dirtyAddresses.add(address);
     }
 
     peek(address: number): number {
@@ -21,19 +21,23 @@ export class BusTest implements Bus {
     }
 
     reset(): void {
-        for (const addr of this.writeLog) this.memory[addr] = 0;
-        this.writeLog.clear();
+        for (const addr of this.dirtyAddresses) this.memory[addr] = 0;
+        this.dirtyAddresses.clear();
     }
 
     populate(values: Array<[number, number]>): void {
-        for (const [address, value] of values) this.memory[address] = value;
+        for (const [address, value] of values) {
+            this.memory[address] = value;
+            this.dirtyAddresses.add(address);
+        }
     }
 
     verify(values: Array<[number, number]>): void {
         const addressSet = new Set(values.map(([x]) => x));
 
-        for (const addr of this.writeLog) {
-            if (!addressSet.has(addr)) throw new Error(`address ${hex24(addr)} should not have been written`);
+        for (const addr of this.dirtyAddresses) {
+            if (!addressSet.has(addr))
+                throw new Error(`address ${hex24(addr)} (${hex8(this.memory[addr])}) is dirty, should be clean`);
         }
 
         for (const [addr, value] of values) {
@@ -43,5 +47,5 @@ export class BusTest implements Bus {
     }
 
     private memory = new Uint8Array(0x1000000);
-    private writeLog = new Set<number>();
+    private dirtyAddresses = new Set<number>();
 }
