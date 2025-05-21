@@ -1,7 +1,8 @@
 import indentString from 'indent-string';
 import { outdent } from 'outdent';
-import { Mode } from './state';
+import { Flag, Mode } from './state';
 import { AddressingMode } from './addressingMode';
+import { BreakReason } from '../break';
 
 export const enum CompilationFlags {
     none = 0,
@@ -131,7 +132,11 @@ export class Compiler {
                 return this;
 
             default:
-                throw new Error(`addressing mode ${addressingMode} not implemented for loadPointer`);
+                this.chunks.push(outdent`
+                        let ptr = 0;
+                        breakCb(${BreakReason.instructionFault}, 'load pointer for ${addressingMode} not implemented');
+                    `);
+                return this;
         }
     }
 
@@ -173,6 +178,70 @@ export class Compiler {
     store(value: string, mode: Mode, addressingMode: AddressingMode, is16: boolean): Compiler {
         if (is16) return this.store16(value, mode, addressingMode);
         else return this.store8(value, mode, addressingMode);
+    }
+
+    load8FromPtr(): Compiler {
+        this.chunks.push(`let op = bus.read(ptr, breakCb);`);
+        return this;
+    }
+
+    load16FromPtr(addressingMode: AddressingMode): Compiler {
+        switch (addressingMode) {
+            case AddressingMode.direct:
+            case AddressingMode.direct_x:
+            case AddressingMode.direct_y:
+                this.chunks.push(`let op = bus.read(ptr, breakCb) | (bus.read((ptr + 1) & 0xffff, breakCb) << 8);`);
+
+                return this;
+
+            default:
+                this.chunks.push(`let op = bus.read(ptr, breakCb) | (bus.read((ptr + 1) & 0xffffff, breakCb) << 8);`);
+                return this;
+        }
+    }
+
+    load8(mode: Mode, addressingMode: AddressingMode): Compiler {
+        if (addressingMode === AddressingMode.imm) {
+            this.chunks.push(outdent`
+                    let op = ${READ_PC};
+                    ${INCREMENT_PC};
+                `);
+
+            return this;
+        }
+
+        return this.loadPointer(mode, addressingMode).load8FromPtr();
+    }
+
+    load16(mode: Mode, addressingMode: AddressingMode): Compiler {
+        if (addressingMode === AddressingMode.imm) {
+            this.chunks.push(outdent`
+                    let op = ${READ_PC};
+                    ${INCREMENT_PC};
+
+                    op |= (${READ_PC}) << 8;
+                    ${INCREMENT_PC};
+                `);
+
+            return this;
+        }
+
+        return this.loadPointer(mode, addressingMode).load16FromPtr(addressingMode);
+    }
+
+    load(mode: Mode, addressingMode: AddressingMode, is16: boolean): Compiler {
+        if (is16) return this.load16(mode, addressingMode);
+        else return this.load8(mode, addressingMode);
+    }
+
+    setFlagsNZ(value: string, is16: boolean): Compiler {
+        this.chunks.push(
+            is16
+                ? `state.p = (state.p & 0x7e) | ((${value} << 8) & 0x80) | (${value} === 0 ? 1 : 0)`
+                : `state.p = (state.p & 0x7e) | (${value} & 0x80) | (${value} === 0 ? 1 : 0)`,
+        );
+
+        return this;
     }
 
     compile(): string {

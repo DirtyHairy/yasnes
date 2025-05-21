@@ -284,6 +284,13 @@ class InstructionLDA extends InstructionWithAddressingMode {
     immWidthHint = is16_M;
 
     readonly mnemonic = 'LDA';
+
+    protected build(mode: Mode, builder: Compiler): void {
+        builder
+            .load(mode, this.addressingMode, is16_M(mode))
+            .then(is16_M(mode) ? 'state.a = op;' : 'state.a = (state.a & 0xff00) | op')
+            .setFlagsNZ('op', is16_M(mode));
+    }
 }
 
 // LDX - Load X Register
