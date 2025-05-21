@@ -5,6 +5,7 @@ import { outdent } from 'outdent';
 import { CompilationFlags, Compiler } from './compiler';
 import { DisassembleResult, disassembleWithAddressingMode } from './disassembler';
 import { AddressingMode } from './addressingMode';
+import { hex8 } from '../util';
 
 const instructions = new Array<Instruction>(0x100);
 
@@ -62,7 +63,8 @@ abstract class InstructionBase implements Instruction {
 abstract class InstructionImplied extends InstructionBase {
     readonly addressingMode = AddressingMode.implied;
 
-    disassemble(mode: Mode): DisassembleResult {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult {
         return {
             disassembly: this.mnemonic,
             additionalBytes: 0,
@@ -73,12 +75,24 @@ abstract class InstructionImplied extends InstructionBase {
 
 // Base class for instructions with various addressing modes
 abstract class InstructionWithAddressingMode extends InstructionBase {
-    constructor(opcode: number, public readonly addressingMode: AddressingMode) {
+    immWidthHint: ((mode: Mode) => boolean) | undefined;
+
+    constructor(
+        opcode: number,
+        public readonly addressingMode: AddressingMode,
+    ) {
         super(opcode);
     }
 
     disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult {
-        return disassembleWithAddressingMode(this.mnemonic, address, this.addressingMode, mode, bus);
+        return disassembleWithAddressingMode(
+            this.mnemonic,
+            (address + 1) & 0xffff,
+            this.addressingMode,
+            mode,
+            bus,
+            this.immWidthHint,
+        );
     }
 }
 
@@ -267,6 +281,8 @@ class InstructionJSR extends InstructionWithAddressingMode {
 
 // LDA - Load Accumulator
 class InstructionLDA extends InstructionWithAddressingMode {
+    immWidthHint = is16_M;
+
     readonly mnemonic = 'LDA';
 }
 
@@ -388,6 +404,17 @@ class InstructionPLY extends InstructionImplied {
 // REP - Reset Processor Status Bits
 class InstructionREP extends InstructionWithAddressingMode {
     readonly mnemonic = 'REP';
+
+    disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult {
+        const value = bus.peek((address + 1) & 0xffff);
+        if (mode !== Mode.em) mode = mode & (~(value >>> 4) & 0x03);
+
+        return {
+            disassembly: `REP ${hex8(value, '$')}`,
+            additionalBytes: 1,
+            mode,
+        };
+    }
 }
 
 // ROL - Rotate Left
@@ -445,6 +472,17 @@ class InstructionSEI extends InstructionImplied {
 // SEP - Set Processor Status Bits
 class InstructionSEP extends InstructionWithAddressingMode {
     readonly mnemonic = 'SEP';
+
+    disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult {
+        const value = bus.peek((address + 1) & 0xffff);
+        if (mode !== Mode.em) mode = mode | ((value >>> 4) & 0x03);
+
+        return {
+            disassembly: `SEP ${hex8(value, '$')}`,
+            additionalBytes: 1,
+            mode,
+        };
+    }
 }
 
 // STA - Store Accumulator
@@ -564,6 +602,26 @@ class InstructionXBA extends InstructionImplied {
 // XCE - Exchange Carry and Emulation Flags
 class InstructionXCE extends InstructionImplied {
     readonly mnemonic = 'XCE';
+
+    disassemble(mode: Mode, address: number, bus: Bus): DisassembleResult {
+        const previousOpcode = bus.peek((address - 1) & 0xffff);
+
+        switch (previousOpcode) {
+            case 0x18:
+                mode = Mode.MX;
+                break;
+
+            case 0x38:
+                mode = Mode.em;
+                break;
+        }
+
+        return {
+            disassembly: this.mnemonic,
+            additionalBytes: 0,
+            mode,
+        };
+    }
 }
 
 export function registerInstructions(): void {
