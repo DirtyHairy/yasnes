@@ -59,9 +59,9 @@ export const enum Flag {
 }
 
 export function flagsToString(flags: number): string {
-    const names = ['c', 'z', 'i', 'd', 'x', 'm', 'v', 'n'];
+    const names = ['n', 'v', 'm', 'x', 'd', 'i', 'z', 'c'];
 
-    return names.map((name, i) => (flags & (1 << i) ? name.toUpperCase() : name)).join('');
+    return names.map((name, i) => (flags & (1 << (7 - i)) ? name.toUpperCase() : name)).join('');
 }
 
 export function modeToString(mode: Mode): string {
@@ -123,6 +123,6 @@ export function stateToString(state: State): string {
     // prettier-ignore
     return outdent`
             A: ${hex16(state.a)}    X: ${hex16(state.x)}    Y: ${hex16(state.y)}    S: ${hex16(state.s)}    PC: ${hex16(state.pc)}
-            D: ${hex16(state.d)}    K: ${hex8(state.k >> 16)}      DBR: ${hex8(state.dbr >> 16)}    flags: ${flagsToString(state.p)}${(state.mode === Mode.em) ? ' (em)' : '(nt)'}
+            D: ${hex16(state.d)}    K: ${hex8(state.k >> 16)}      DBR: ${hex8(state.dbr >> 16)}    flags: ${flagsToString(state.p)}${(state.mode === Mode.em) ? ' (em)' : ' (nt)'}
         `;
 }

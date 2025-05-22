@@ -22,7 +22,7 @@ export class Compiler {
         return this;
     }
 
-    loadPointer(mode: Mode, addressingMode: AddressingMode): Compiler {
+    loadPointer(mode: Mode, addressingMode: AddressingMode, forStore: boolean): Compiler {
         switch (addressingMode) {
             case AddressingMode.abs:
                 this.chunks.push(outdent`
@@ -38,7 +38,8 @@ export class Compiler {
                 return this;
 
             case AddressingMode.abs_x:
-                this.chunks.push(outdent`
+                this.chunks.push(
+                    outdent`
                     let ptr = ${READ_PC};
                     ${INCREMENT_PC};
 
@@ -47,9 +48,14 @@ export class Compiler {
 
                     ptr |= state.dbr;
                     ptr = (ptr + state.x) & 0xffffff;
+                    `,
+                );
 
-                    clock.tickCpu();
-                    `);
+                if (mode === Mode.Mx || mode === Mode.mx || forStore) {
+                    this.chunks.push(`clock.tickCpu();`);
+                } else {
+                    this.chunks.push(`if ((ptr & 0xff) < state.x) clock.tickCpu();`);
+                }
 
                 return this;
 
@@ -63,9 +69,13 @@ export class Compiler {
 
                     ptr |= state.dbr;
                     ptr = (ptr + state.y) & 0xffffff;
-
-                    clock.tickCpu();
                     `);
+
+                if (mode === Mode.Mx || mode === Mode.mx || forStore) {
+                    this.chunks.push(`clock.tickCpu();`);
+                } else {
+                    this.chunks.push(`if ((ptr & 0xff) < state.y) clock.tickCpu();`);
+                }
 
                 return this;
 
@@ -131,6 +141,203 @@ export class Compiler {
 
                 return this;
 
+            case AddressingMode.direct_16:
+                this.chunks.push(outdent`
+                        let ptr0 = (${READ_PC} + state.d) & 0xffff;
+                        ${INCREMENT_PC};
+
+                        let ptr = bus.read(ptr0, breakCb);
+                    `);
+
+                if (mode === Mode.em) {
+                    this.chunks.push(outdent`
+                            if (state.d & 0xff) {
+                                clock.tickCpu();
+                                ptr0 = (ptr0 + 1) & 0xffff;    
+                            } else {
+                                ptr0 = state.d | ((ptr0 + 1) & 0xff);
+                            }
+                        `);
+                } else {
+                    this.chunks.push(outdent`
+                            if (state.d & 0xff) clock.tickCpu();
+                            ptr0 = (ptr0 + 1) & 0xffff;
+                        `);
+                }
+
+                this.chunks.push(outdent`
+                        ptr |= bus.read(ptr0, breakCb) << 8;
+                        ptr = (ptr | state.dbr);
+                    `);
+
+                return this;
+
+            case AddressingMode.direct_24:
+                this.chunks.push(outdent`
+                        let ptr0 = (${READ_PC} + state.d) & 0xffff;
+                        ${INCREMENT_PC};
+
+                        if (state.d & 0xff) clock.tickCpu();
+
+                        let ptr = bus.read(ptr0, breakCb);
+                        ptr |= bus.read((ptr0 + 1) & 0xffff, breakCb) << 8;
+                        ptr |= bus.read((ptr0 + 2) & 0xffff, breakCb) << 16;
+                    `);
+
+                return this;
+
+            case AddressingMode.direct_x_16:
+                this.chunks.push(outdent`
+                        let ptr0 = ${READ_PC};
+                        ${INCREMENT_PC};
+                    `);
+
+                if (mode === Mode.em) {
+                    this.chunks.push(outdent`
+                            let ptr;
+
+                            if (state.d & 0xff) {
+                                ptr0 = (ptr0 + state.d + state.x) & 0xffff;
+                                clock.tickCpu_N(2);
+                                
+                                ptr = bus.read(ptr0, breakCb);
+                                ptr |= bus.read((ptr0 + 1) & 0xffff, breakCb) << 8;
+                            } else {
+                                ptr0 = ptr0 + state.x;
+                                clock.tickCpu();
+                                
+                                ptr = bus.read((ptr0 & 0xff) | state.d, breakCb);
+                                ptr |= bus.read(((ptr0 + 1) & 0xff) | state.d, breakCb) << 8;
+                            }
+
+                            ptr |= state.dbr;
+                        `);
+                } else {
+                    this.chunks.push(outdent`
+                            ptr0 = (ptr0 + state.d + state.x) & 0xffff;
+
+                            if (state.d & 0xff) clock.tickCpu_N(2);
+                            else clock.tickCpu();
+                            
+                            let ptr = bus.read(ptr0, breakCb);
+                            ptr |= bus.read((ptr0 + 1) & 0xffff, breakCb) << 8;
+
+                            ptr |= state.dbr;
+                        `);
+                }
+
+                return this;
+
+            case AddressingMode.direct_y_16:
+                this.chunks.push(outdent`
+                        let ptr0 = (${READ_PC} + state.d) & 0xffff;
+                        ${INCREMENT_PC};
+
+                        let ptr = bus.read(ptr0, breakCb);
+                    `);
+
+                if (mode === Mode.em) {
+                    this.chunks.push(outdent`
+                            if (state.d & 0xff) {
+                                clock.tickCpu();
+                                ptr0 = (ptr0 + 1) & 0xffff;    
+                            } else {
+                                ptr0 = state.d | ((ptr0 + 1) & 0xff);
+                            }
+                        `);
+                } else {
+                    this.chunks.push(outdent`
+                            if (state.d & 0xff) clock.tickCpu();
+                            ptr0 = (ptr0 + 1) & 0xffff;
+                        `);
+                }
+
+                this.chunks.push(outdent`
+                        ptr |= bus.read(ptr0, breakCb) << 8;
+                        ptr = ((ptr | state.dbr) + state.y) & 0xffffff
+                    `);
+
+                if (mode === Mode.Mx || mode === Mode.mx || forStore) {
+                    this.chunks.push(`clock.tickCpu();`);
+                } else {
+                    this.chunks.push(`if ((ptr & 0xff) < state.y) clock.tickCpu();`);
+                }
+
+                return this;
+
+            case AddressingMode.direct_y_24:
+                this.chunks.push(outdent`
+                        let ptr0 = (${READ_PC} + state.d) & 0xffff;
+                        ${INCREMENT_PC};
+
+                        if (state.d & 0xff) clock.tickCpu();
+
+                        let ptr = bus.read(ptr0, breakCb);
+                        ptr |= bus.read((ptr0 + 1) & 0xffff, breakCb) << 8;
+                        ptr |= bus.read((ptr0 + 2) & 0xffff, breakCb) << 16;
+
+                        ptr = (ptr  + state.y) & 0xffffff
+                    `);
+
+                return this;
+
+            case AddressingMode.stack:
+                this.chunks.push(outdent`
+                        let ptr = (${READ_PC} + state.s) & 0xffff;
+                        ${INCREMENT_PC};
+
+                        clock.tickCpu();
+                    `);
+
+                return this;
+
+            case AddressingMode.stack_y_16:
+                this.chunks.push(outdent`
+                        let ptr0 = (${READ_PC} + state.s) & 0xffff;
+                        ${INCREMENT_PC};
+
+                        clock.tickCpu();
+
+                        let ptr = bus.read(ptr0, breakCb);
+                        ptr |= bus.read((ptr0 + 1) & 0xffff, breakCb) << 8;
+                        
+                        ptr = ((ptr | state.dbr) + state.y) & 0xffffff;
+
+                        clock.tickCpu();
+                    `);
+
+                return this;
+
+            case AddressingMode.long:
+                this.chunks.push(outdent`
+                        let ptr = ${READ_PC};
+                        ${INCREMENT_PC};
+
+                        ptr |= (${READ_PC}) << 8;
+                        ${INCREMENT_PC};
+
+                        ptr |= (${READ_PC}) << 16;
+                        ${INCREMENT_PC};
+                    `);
+
+                return this;
+
+            case AddressingMode.long_x:
+                this.chunks.push(outdent`
+                        let ptr = ${READ_PC};
+                        ${INCREMENT_PC};
+
+                        ptr |= (${READ_PC}) << 8;
+                        ${INCREMENT_PC};
+
+                        ptr |= (${READ_PC}) << 16;
+                        ${INCREMENT_PC};
+
+                        ptr = (ptr + state.x) & 0xffffff;
+                    `);
+
+                return this;
+
             default:
                 this.chunks.push(outdent`
                         let ptr = 0;
@@ -168,11 +375,11 @@ export class Compiler {
     }
 
     store8(value: string, mode: Mode, addressingMode: AddressingMode): Compiler {
-        return this.loadPointer(mode, addressingMode).store8ToPtr(value);
+        return this.loadPointer(mode, addressingMode, true).store8ToPtr(value);
     }
 
     store16(value: string, mode: Mode, addressingMode: AddressingMode): Compiler {
-        return this.loadPointer(mode, addressingMode).store16ToPtr(value, addressingMode);
+        return this.loadPointer(mode, addressingMode, true).store16ToPtr(value, addressingMode);
     }
 
     store(value: string, mode: Mode, addressingMode: AddressingMode, is16: boolean): Compiler {
@@ -210,7 +417,7 @@ export class Compiler {
             return this;
         }
 
-        return this.loadPointer(mode, addressingMode).load8FromPtr();
+        return this.loadPointer(mode, addressingMode, false).load8FromPtr();
     }
 
     load16(mode: Mode, addressingMode: AddressingMode): Compiler {
@@ -226,7 +433,7 @@ export class Compiler {
             return this;
         }
 
-        return this.loadPointer(mode, addressingMode).load16FromPtr(addressingMode);
+        return this.loadPointer(mode, addressingMode, false).load16FromPtr(addressingMode);
     }
 
     load(mode: Mode, addressingMode: AddressingMode, is16: boolean): Compiler {
@@ -237,8 +444,8 @@ export class Compiler {
     setFlagsNZ(value: string, is16: boolean): Compiler {
         this.chunks.push(
             is16
-                ? `state.p = (state.p & 0x7e) | ((${value} << 8) & 0x80) | (${value} === 0 ? 1 : 0)`
-                : `state.p = (state.p & 0x7e) | (${value} & 0x80) | (${value} === 0 ? 1 : 0)`,
+                ? `state.p = (state.p & ~(${Flag.z | Flag.n})) | ((${value} >>> 8) & ${Flag.n}) | (${value} === 0 ? ${Flag.z} : 0)`
+                : `state.p = (state.p & ~(${Flag.z | Flag.n})) | (${value} & ${Flag.n}) | (${value} === 0 ? ${Flag.z} : 0)`,
         );
 
         return this;

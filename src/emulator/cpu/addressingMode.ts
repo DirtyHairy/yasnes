@@ -21,5 +21,5 @@ export const enum AddressingMode {
     rel16 = 'rel16', // $0000 (16 bit PC-relative)
     src_dest = 'src,dest', // $00,$00
     stack = 'stack', // $00,S
-    stack_y = '(stack),y', // ($00,S),Y
+    stack_y_16 = '(stack),y', // ($00,S),Y
 }
