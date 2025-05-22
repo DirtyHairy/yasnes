@@ -315,7 +315,7 @@ class InstructionLDA extends InstructionWithAddressingMode {
     protected build(mode: Mode, compiler: Compiler): void {
         compiler
             .load(mode, this.addressingMode, is16_M(mode))
-            .then(is16_M(mode) ? 'state.a = op;' : 'state.a = (state.a & 0xff00) | op')
+            .then(is16_M(mode) ? 'state.a = op;' : 'state.a = (state.a & 0xff00) | op;')
             .setFlagsNZ('op', is16_M(mode));
     }
 }
@@ -327,7 +327,7 @@ class InstructionLDX extends InstructionWithAddressingMode {
     protected build(mode: Mode, compiler: Compiler): void {
         compiler
             .load(mode, this.addressingMode, is16_X(mode))
-            .then(is16_X(mode) ? 'state.x = op;' : 'state.x = (state.x & 0xff00) | op')
+            .then(is16_X(mode) ? 'state.x = op;' : 'state.x = (state.x & 0xff00) | op;')
             .setFlagsNZ('op', is16_X(mode));
     }
 }
@@ -339,7 +339,7 @@ class InstructionLDY extends InstructionWithAddressingMode {
     protected build(mode: Mode, compiler: Compiler): void {
         compiler
             .load(mode, this.addressingMode, is16_X(mode))
-            .then(is16_X(mode) ? 'state.y = op;' : 'state.y = (state.y & 0xff00) | op')
+            .then(is16_X(mode) ? 'state.y = op;' : 'state.y = (state.y & 0xff00) | op;')
             .setFlagsNZ('op', is16_X(mode));
     }
 }
@@ -595,21 +595,45 @@ class InstructionSTZ extends InstructionWithAddressingMode {
 // TAX - Transfer Accumulator to X
 class InstructionTAX extends InstructionImplied {
     readonly mnemonic = 'TAX';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .then(is16_X(mode) ? 'state.x = state.a;' : 'state.x = (state.x & 0xff00) | (state.a & 0xff);')
+            .then('clock.tickCpu();')
+            .setFlagsNZ(is16_X(mode) ? 'state.x' : '(state.x & 0xff)', is16_X(mode));
+    }
 }
 
 // TAY - Transfer Accumulator to Y
 class InstructionTAY extends InstructionImplied {
     readonly mnemonic = 'TAY';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .then(is16_X(mode) ? 'state.y = state.a;' : 'state.y = (state.y & 0xff00) | (state.a & 0xff);')
+            .then('clock.tickCpu();')
+            .setFlagsNZ(is16_X(mode) ? 'state.y' : '(state.y & 0xff)', is16_X(mode));
+    }
 }
 
 // TCD - Transfer 16-bit Accumulator to Direct Page Register
 class InstructionTCD extends InstructionImplied {
     readonly mnemonic = 'TCD';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.then('state.d = state.a;').then('clock.tickCpu();').setFlagsNZ('state.d', true);
+    }
 }
 
 // TCS - Transfer 16-bit Accumulator to Stack Pointer
 class InstructionTCS extends InstructionImplied {
     readonly mnemonic = 'TCS';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .then(mode === Mode.em ? 'state.s = (state.a & 0xff) | 0x0100;' : 'state.s = state.a;')
+            .then('clock.tickCpu();');
+    }
 }
 
 // TDC - Transfer Direct Page Register to 16-bit Accumulator
