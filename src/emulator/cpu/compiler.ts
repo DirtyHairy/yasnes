@@ -444,8 +444,8 @@ export class Compiler {
     setFlagsNZ(value: string, is16: boolean): Compiler {
         this.chunks.push(
             is16
-                ? `state.p = (state.p & ~(${Flag.z | Flag.n})) | ((${value} >>> 8) & ${Flag.n}) | (${value} === 0 ? ${Flag.z} : 0)`
-                : `state.p = (state.p & ~(${Flag.z | Flag.n})) | (${value} & ${Flag.n}) | (${value} === 0 ? ${Flag.z} : 0)`,
+                ? `state.p = (state.p & (${~(Flag.z | Flag.n)})) | ((${value} >>> 8) & ${Flag.n}) | (${value} === 0 ? ${Flag.z} : 0)`
+                : `state.p = (state.p & (${~(Flag.z | Flag.n)})) | (${value} & ${Flag.n}) | (${value} === 0 ? ${Flag.z} : 0)`,
         );
 
         return this;

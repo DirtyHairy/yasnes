@@ -34,11 +34,11 @@ abstract class InstructionBase implements Instruction {
     constructor(protected opcode: number) {}
 
     compile(mode: Mode, flags: number): string {
-        const builder = new Compiler(flags);
+        const compiler = new Compiler(flags);
 
-        this.build(mode, builder, flags);
+        this.build(mode, compiler, flags);
 
-        return builder.compile();
+        return compiler.compile();
     }
 
     isImplemented(): boolean {
@@ -50,8 +50,8 @@ abstract class InstructionBase implements Instruction {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    protected build(mode: Mode, builder: Compiler, flags: CompilationFlags): void {
-        builder.then(outdent`
+    protected build(mode: Mode, compiler: Compiler, flags: CompilationFlags): void {
+        compiler.then(outdent`
             breakCb(${BreakReason.instructionFault}, '${this.mnemonic} not implemented');
         `);
     }
@@ -107,7 +107,6 @@ function is16_M(mode: Mode): boolean {
     }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function is16_X(mode: Mode): boolean {
     switch (mode) {
         case Mode.Mx:
@@ -197,21 +196,49 @@ class InstructionBVS extends InstructionWithAddressingMode {
 // CLC - Clear Carry Flag
 class InstructionCLC extends InstructionImplied {
     readonly mnemonic = 'CLC';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.then(outdent`
+                state.p &= ${~Flag.c};
+                clock.tickCpu();
+            `);
+    }
 }
 
 // CLD - Clear Decimal Mode
 class InstructionCLD extends InstructionImplied {
     readonly mnemonic = 'CLD';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.then(outdent`
+                state.p &= ${~Flag.d};
+                clock.tickCpu();
+            `);
+    }
 }
 
 // CLI - Clear Interrupt Disable
 class InstructionCLI extends InstructionImplied {
     readonly mnemonic = 'CLI';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.then(outdent`
+                state.p &= ${~Flag.i};
+                clock.tickCpu();
+            `);
+    }
 }
 
 // CLV - Clear Overflow Flag
 class InstructionCLV extends InstructionImplied {
     readonly mnemonic = 'CLV';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.then(outdent`
+                state.p &= ${~Flag.v};
+                clock.tickCpu();
+            `);
+    }
 }
 
 // CMP - Compare
@@ -285,8 +312,8 @@ class InstructionLDA extends InstructionWithAddressingMode {
 
     readonly mnemonic = 'LDA';
 
-    protected build(mode: Mode, builder: Compiler): void {
-        builder
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
             .load(mode, this.addressingMode, is16_M(mode))
             .then(is16_M(mode) ? 'state.a = op;' : 'state.a = (state.a & 0xff00) | op')
             .setFlagsNZ('op', is16_M(mode));
@@ -296,11 +323,25 @@ class InstructionLDA extends InstructionWithAddressingMode {
 // LDX - Load X Register
 class InstructionLDX extends InstructionWithAddressingMode {
     readonly mnemonic = 'LDX';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .load(mode, this.addressingMode, is16_X(mode))
+            .then(is16_X(mode) ? 'state.x = op;' : 'state.x = (state.x & 0xff00) | op')
+            .setFlagsNZ('op', is16_X(mode));
+    }
 }
 
 // LDY - Load Y Register
 class InstructionLDY extends InstructionWithAddressingMode {
     readonly mnemonic = 'LDY';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .load(mode, this.addressingMode, is16_X(mode))
+            .then(is16_X(mode) ? 'state.y = op;' : 'state.y = (state.y & 0xff00) | op')
+            .setFlagsNZ('op', is16_X(mode));
+    }
 }
 
 // LSR - Logical Shift Right
@@ -321,6 +362,10 @@ class InstructionMVP extends InstructionWithAddressingMode {
 // NOP - No Operation
 class InstructionNOP extends InstructionImplied {
     readonly mnemonic = 'NOP';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.then('clock.tickCpu();');
+    }
 }
 
 // ORA - Logical OR
@@ -457,19 +502,33 @@ class InstructionSBC extends InstructionWithAddressingMode {
 // SEC - Set Carry Flag
 class InstructionSEC extends InstructionImplied {
     readonly mnemonic = 'SEC';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.then(outdent`
+                state.p |= ${Flag.c};
+                clock.tickCpu();
+            `);
+    }
 }
 
 // SED - Set Decimal Flag
 class InstructionSED extends InstructionImplied {
     readonly mnemonic = 'SED';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.then(outdent`
+                state.p |= ${Flag.d};
+                clock.tickCpu();
+            `);
+    }
 }
 
 // SEI - Set Interrupt Disable Flag
 class InstructionSEI extends InstructionImplied {
     readonly mnemonic = 'SEI';
 
-    protected build(mode: Mode, builder: Compiler): Compiler {
-        return builder.then(outdent`
+    protected build(mode: Mode, compiler: Compiler): Compiler {
+        return compiler.then(outdent`
             state.p |= ${Flag.i};
             clock.tickCpu();
         `);
@@ -495,6 +554,10 @@ class InstructionSEP extends InstructionWithAddressingMode {
 // STA - Store Accumulator
 class InstructionSTA extends InstructionWithAddressingMode {
     readonly mnemonic = 'STA';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.store('state.a', mode, this.addressingMode, is16_M(mode));
+    }
 }
 
 // STP - Stop the Clock
@@ -505,19 +568,27 @@ class InstructionSTP extends InstructionImplied {
 // STX - Store X Register
 class InstructionSTX extends InstructionWithAddressingMode {
     readonly mnemonic = 'STX';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.store('state.x', mode, this.addressingMode, is16_X(mode));
+    }
 }
 
 // STY - Store Y Register
 class InstructionSTY extends InstructionWithAddressingMode {
     readonly mnemonic = 'STY';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.store('state.y', mode, this.addressingMode, is16_X(mode));
+    }
 }
 
 // STZ - Store Zero
 class InstructionSTZ extends InstructionWithAddressingMode {
     readonly mnemonic = 'STZ';
 
-    protected build(mode: Mode, builder: Compiler): void {
-        builder.store('0', mode, this.addressingMode, is16_M(mode));
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.store('0', mode, this.addressingMode, is16_M(mode));
     }
 }
 
