@@ -310,6 +310,8 @@ class InstructionLDA extends InstructionWithAddressingMode {
 
 // LDX - Load X Register
 class InstructionLDX extends InstructionWithAddressingMode {
+    immWidthHint = is16_X;
+
     readonly mnemonic = 'LDX';
 
     protected build(mode: Mode, compiler: Compiler): void {
@@ -322,6 +324,8 @@ class InstructionLDX extends InstructionWithAddressingMode {
 
 // LDY - Load Y Register
 class InstructionLDY extends InstructionWithAddressingMode {
+    immWidthHint = is16_X;
+
     readonly mnemonic = 'LDY';
 
     protected build(mode: Mode, compiler: Compiler): void {
@@ -502,6 +506,8 @@ class InstructionRTS extends InstructionImplied {
 
 // SBC - Subtract with Carry
 class InstructionSBC extends InstructionWithAddressingMode {
+    immWidthHint = is16_M;
+
     readonly mnemonic = 'SBC';
 }
 
