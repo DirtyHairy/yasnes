@@ -51,7 +51,7 @@ abstract class InstructionBase implements Instruction {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     protected build(mode: Mode, compiler: Compiler, flags: CompilationFlags): void {
-        compiler.then(outdent`
+        compiler.add(outdent`
             breakCb(${BreakReason.instructionFault}, '${this.mnemonic} not implemented');
         `);
     }
@@ -198,7 +198,7 @@ class InstructionCLC extends InstructionImplied {
     readonly mnemonic = 'CLC';
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler.then(`state.p &= ${~Flag.c}`).tick();
+        compiler.add(`state.p &= ${~Flag.c}`).tick();
     }
 }
 
@@ -207,7 +207,7 @@ class InstructionCLD extends InstructionImplied {
     readonly mnemonic = 'CLD';
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler.then(`state.p &= ${~Flag.d};`).tick();
+        compiler.add(`state.p &= ${~Flag.d};`).tick();
     }
 }
 
@@ -216,7 +216,7 @@ class InstructionCLI extends InstructionImplied {
     readonly mnemonic = 'CLI';
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler.then(`state.p &= ${~Flag.i}`).tick();
+        compiler.add(`state.p &= ${~Flag.i}`).tick();
     }
 }
 
@@ -225,7 +225,7 @@ class InstructionCLV extends InstructionImplied {
     readonly mnemonic = 'CLV';
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler.then(`state.p &= ${~Flag.v}`).tick();
+        compiler.add(`state.p &= ${~Flag.v}`).tick();
     }
 }
 
@@ -303,7 +303,7 @@ class InstructionLDA extends InstructionWithAddressingMode {
     protected build(mode: Mode, compiler: Compiler): void {
         compiler
             .load(mode, this.addressingMode, is16_M(mode))
-            .then(is16_M(mode) ? 'state.a = op;' : 'state.a = (state.a & 0xff00) | op;')
+            .add(is16_M(mode) ? 'state.a = op;' : 'state.a = (state.a & 0xff00) | op;')
             .setFlagsNZ('op', is16_M(mode));
     }
 }
@@ -315,7 +315,7 @@ class InstructionLDX extends InstructionWithAddressingMode {
     protected build(mode: Mode, compiler: Compiler): void {
         compiler
             .load(mode, this.addressingMode, is16_X(mode))
-            .then(is16_X(mode) ? 'state.x = op;' : 'state.x = (state.x & 0xff00) | op;')
+            .add(is16_X(mode) ? 'state.x = op;' : 'state.x = (state.x & 0xff00) | op;')
             .setFlagsNZ('op', is16_X(mode));
     }
 }
@@ -327,7 +327,7 @@ class InstructionLDY extends InstructionWithAddressingMode {
     protected build(mode: Mode, compiler: Compiler): void {
         compiler
             .load(mode, this.addressingMode, is16_X(mode))
-            .then(is16_X(mode) ? 'state.y = op;' : 'state.y = (state.y & 0xff00) | op;')
+            .add(is16_X(mode) ? 'state.y = op;' : 'state.y = (state.y & 0xff00) | op;')
             .setFlagsNZ('op', is16_X(mode));
     }
 }
@@ -492,7 +492,7 @@ class InstructionSEC extends InstructionImplied {
     readonly mnemonic = 'SEC';
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler.then(`state.p |= ${Flag.c}`).tick();
+        compiler.add(`state.p |= ${Flag.c}`).tick();
     }
 }
 
@@ -501,7 +501,7 @@ class InstructionSED extends InstructionImplied {
     readonly mnemonic = 'SED';
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler.then(`state.p |= ${Flag.d}`).tick();
+        compiler.add(`state.p |= ${Flag.d}`).tick();
     }
 }
 
@@ -510,7 +510,7 @@ class InstructionSEI extends InstructionImplied {
     readonly mnemonic = 'SEI';
 
     protected build(mode: Mode, compiler: Compiler): Compiler {
-        return compiler.then(`state.p |= ${Flag.i}`).tick();
+        return compiler.add(`state.p |= ${Flag.i}`).tick();
     }
 }
 
@@ -577,7 +577,7 @@ class InstructionTAX extends InstructionImplied {
 
     protected build(mode: Mode, compiler: Compiler): void {
         compiler
-            .then(is16_X(mode) ? 'state.x = state.a;' : 'state.x = (state.x & 0xff00) | (state.a & 0xff);')
+            .add(is16_X(mode) ? 'state.x = state.a;' : 'state.x = (state.x & 0xff00) | (state.a & 0xff);')
             .setFlagsNZ(is16_X(mode) ? 'state.x' : '(state.x & 0xff)', is16_X(mode))
             .tick();
     }
@@ -589,7 +589,7 @@ class InstructionTAY extends InstructionImplied {
 
     protected build(mode: Mode, compiler: Compiler): void {
         compiler
-            .then(is16_X(mode) ? 'state.y = state.a;' : 'state.y = (state.y & 0xff00) | (state.a & 0xff);')
+            .add(is16_X(mode) ? 'state.y = state.a;' : 'state.y = (state.y & 0xff00) | (state.a & 0xff);')
             .setFlagsNZ(is16_X(mode) ? 'state.y' : '(state.y & 0xff)', is16_X(mode))
             .tick();
     }
@@ -600,7 +600,7 @@ class InstructionTCD extends InstructionImplied {
     readonly mnemonic = 'TCD';
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler.then('state.d = state.a;').setFlagsNZ('state.d', true).tick();
+        compiler.add('state.d = state.a;').setFlagsNZ('state.d', true).tick();
     }
 }
 
@@ -609,7 +609,7 @@ class InstructionTCS extends InstructionImplied {
     readonly mnemonic = 'TCS';
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler.then(mode === Mode.em ? 'state.s = (state.a & 0xff) | 0x0100;' : 'state.s = state.a;').tick();
+        compiler.add(mode === Mode.em ? 'state.s = (state.a & 0xff) | 0x0100;' : 'state.s = state.a;').tick();
     }
 }
 
@@ -618,7 +618,7 @@ class InstructionTDC extends InstructionImplied {
     readonly mnemonic = 'TDC';
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler.then('state.a = state.d;').setFlagsNZ('state.a', true).tick();
+        compiler.add('state.a = state.d;').setFlagsNZ('state.a', true).tick();
     }
 }
 
@@ -637,7 +637,7 @@ class InstructionTSC extends InstructionImplied {
     readonly mnemonic = 'TSC';
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler.then('state.a = state.s;').setFlagsNZ('state.s', true).tick();
+        compiler.add('state.a = state.s;').setFlagsNZ('state.s', true).tick();
     }
 }
 
@@ -647,7 +647,7 @@ class InstructionTSX extends InstructionImplied {
 
     protected build(mode: Mode, compiler: Compiler): void {
         compiler
-            .then(is16_X(mode) ? 'state.x = state.s;' : 'state.x = (state.x & 0xff00) | (state.s & 0xff);')
+            .add(is16_X(mode) ? 'state.x = state.s;' : 'state.x = (state.x & 0xff00) | (state.s & 0xff);')
             .setFlagsNZ(is16_X(mode) ? 'state.x' : '(state.x & 0xff)', is16_X(mode))
             .tick();
     }
@@ -659,7 +659,7 @@ class InstructionTXA extends InstructionImplied {
 
     protected build(mode: Mode, compiler: Compiler): void {
         compiler
-            .then(is16_M(mode) ? 'state.a = state.x;' : 'state.a = (state.a & 0xff00) | (state.x & 0xff);')
+            .add(is16_M(mode) ? 'state.a = state.x;' : 'state.a = (state.a & 0xff00) | (state.x & 0xff);')
             .setFlagsNZ(is16_M(mode) ? 'state.a' : '(state.a & 0xff)', is16_M(mode))
             .tick();
     }
@@ -670,7 +670,7 @@ class InstructionTXS extends InstructionImplied {
     readonly mnemonic = 'TXS';
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler.then(mode === Mode.em ? 'state.s = (state.x & 0xff) | 0x0100;' : 'state.s = state.x;').tick();
+        compiler.add(mode === Mode.em ? 'state.s = (state.x & 0xff) | 0x0100;' : 'state.s = state.x;').tick();
     }
 }
 
@@ -680,7 +680,7 @@ class InstructionTXY extends InstructionImplied {
 
     protected build(mode: Mode, compiler: Compiler): void {
         compiler
-            .then(is16_X(mode) ? 'state.y = state.x;' : 'state.y = (state.y & 0xff00) | (state.x & 0xff);')
+            .add(is16_X(mode) ? 'state.y = state.x;' : 'state.y = (state.y & 0xff00) | (state.x & 0xff);')
             .setFlagsNZ(is16_X(mode) ? 'state.y' : '(state.y & 0xff)', is16_X(mode))
             .tick();
     }
@@ -692,7 +692,7 @@ class InstructionTYA extends InstructionImplied {
 
     protected build(mode: Mode, compiler: Compiler): void {
         compiler
-            .then(is16_M(mode) ? 'state.a = state.y;' : 'state.a = (state.a & 0xff00) | (state.y & 0xff);')
+            .add(is16_M(mode) ? 'state.a = state.y;' : 'state.a = (state.a & 0xff00) | (state.y & 0xff);')
             .setFlagsNZ(is16_M(mode) ? 'state.a' : '(state.a & 0xff)', is16_M(mode))
             .tick();
     }
@@ -704,7 +704,7 @@ class InstructionTYX extends InstructionImplied {
 
     protected build(mode: Mode, compiler: Compiler): void {
         compiler
-            .then(is16_X(mode) ? 'state.x = state.y;' : 'state.x = (state.x & 0xff00) | (state.y & 0xff);')
+            .add(is16_X(mode) ? 'state.x = state.y;' : 'state.x = (state.x & 0xff00) | (state.y & 0xff);')
             .setFlagsNZ(is16_X(mode) ? 'state.x' : '(state.x & 0xff)', is16_X(mode))
             .tick();
     }
@@ -751,7 +751,7 @@ class InstructionXCE extends InstructionImplied {
 
     protected build(mode: Mode, compiler: Compiler): void {
         if (mode === Mode.em) {
-            compiler.then(outdent`
+            compiler.add(outdent`
                     if ((state.p & ${Flag.c}) === 0) {
                         state.mode = (state.p >>> 4) & 0x03;
 
@@ -761,7 +761,7 @@ class InstructionXCE extends InstructionImplied {
                     }
                 `);
         } else {
-            compiler.then(outdent`
+            compiler.add(outdent`
                     if (state.p & ${Flag.c}) {
                         state.mode = ${Mode.em};
 

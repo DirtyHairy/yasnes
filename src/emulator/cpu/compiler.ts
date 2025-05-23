@@ -16,7 +16,7 @@ export class Compiler {
 
     constructor(private flags: number) {}
 
-    then(chunk: string): Compiler {
+    add(chunk: string): Compiler {
         this.chunks.push(chunk);
 
         return this;
