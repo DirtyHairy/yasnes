@@ -455,6 +455,24 @@ class InstructionREP extends InstructionWithAddressingMode {
             mode,
         };
     }
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.load8(mode, this.addressingMode).add(`state.p &= ~op;`);
+
+        if (mode === Mode.em) {
+            compiler.add(`state.p |= ${Flag.m | Flag.x};`);
+        } else {
+            compiler.add(outdent`
+                    const newMode = (state.p >>> 4) & 0x03;
+                    if (newMode != state.mode) {
+                        state.mode = newMode;
+                        state.slowPath |= ${SlowPathReason.modeChange};
+                    }
+                `);
+        }
+
+        compiler.tick();
+    }
 }
 
 // ROL - Rotate Left
@@ -527,6 +545,28 @@ class InstructionSEP extends InstructionWithAddressingMode {
             additionalBytes: 1,
             mode,
         };
+    }
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.load8(mode, this.addressingMode).add(`state.p |= op;`);
+
+        if (mode !== Mode.em) {
+            compiler.add(outdent`
+                    const newMode = (state.p >>> 4) & 0x03;
+                    if (newMode != state.mode) {
+                        state.mode = newMode;
+
+                        if (state.p & ${Flag.x}) {
+                            state.x &= 0xff;
+                            state.y &= 0xff;
+                        }
+
+                        state.slowPath |= ${SlowPathReason.modeChange};
+                    }
+                `);
+        }
+
+        compiler.tick();
     }
 }
 
