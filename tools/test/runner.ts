@@ -1,7 +1,15 @@
 import { outdent } from 'outdent';
 import { BreakReason } from '../../src/emulator/break';
 import { Cpu } from '../../src/emulator/cpu/cpu';
-import { compareState, INITIAL_STATE, Mode, State, stateToString } from '../../src/emulator/cpu/state';
+import {
+    compareState,
+    Flag,
+    INITIAL_STATE,
+    Mode,
+    SlowPathReason,
+    State,
+    stateToString,
+} from '../../src/emulator/cpu/state';
 import { BusTest } from './busTest';
 import { ClockTest } from './clockTest';
 import { readFileSync } from 'fs';
@@ -50,7 +58,11 @@ function copyFixtureToState(state: State, fixture: FixtureState): void {
     state.slowPath = 0;
     state.mode = fixture.e > 0 ? Mode.em : (fixture.p >>> 4) & 0x03;
 
-    if (state.mode === Mode.em) state.s = 0x0100 | (state.s & 0xff);
+    if (state.mode === Mode.em) {
+        state.s = 0x0100 | (state.s & 0xff);
+        state.p |= Flag.m | Flag.x;
+    }
+
     if (state.mode !== Mode.mx && state.mode !== Mode.Mx) {
         state.x &= 0xff;
         state.y &= 0xff;
@@ -170,6 +182,8 @@ export class TestRunner {
             throw new Error(`break: ${this.cpu.getBreakMessage()}`);
         }
 
+        this.cpu.state.breakReason = BreakReason.none;
+        this.cpu.state.slowPath = 0;
         if (!compareState(this.finalState, this.cpu.state)) {
             throw new Error(outdent`
                 expected state:

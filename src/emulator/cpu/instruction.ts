@@ -1,5 +1,5 @@
 import { Bus } from '../bus';
-import { Flag, Mode } from './state';
+import { Flag, Mode, SlowPathReason } from './state';
 import { BreakReason } from '../break';
 import { outdent } from 'outdent';
 import { CompilationFlags, Compiler } from './compiler';
@@ -198,10 +198,7 @@ class InstructionCLC extends InstructionImplied {
     readonly mnemonic = 'CLC';
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler.then(outdent`
-                state.p &= ${~Flag.c};
-                clock.tickCpu();
-            `);
+        compiler.then(`state.p &= ${~Flag.c}`).tick();
     }
 }
 
@@ -210,10 +207,7 @@ class InstructionCLD extends InstructionImplied {
     readonly mnemonic = 'CLD';
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler.then(outdent`
-                state.p &= ${~Flag.d};
-                clock.tickCpu();
-            `);
+        compiler.then(`state.p &= ${~Flag.d};`).tick();
     }
 }
 
@@ -639,6 +633,10 @@ class InstructionTCS extends InstructionImplied {
 // TDC - Transfer Direct Page Register to 16-bit Accumulator
 class InstructionTDC extends InstructionImplied {
     readonly mnemonic = 'TDC';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.then('state.a = state.d;').then('clock.tickCpu();').setFlagsNZ('state.a', true);
+    }
 }
 
 // TRB - Test and Reset Bits
@@ -654,36 +652,81 @@ class InstructionTSB extends InstructionWithAddressingMode {
 // TSC - Transfer Stack Pointer to 16-bit Accumulator
 class InstructionTSC extends InstructionImplied {
     readonly mnemonic = 'TSC';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.then('state.a = state.s;').then('clock.tickCpu();').setFlagsNZ('state.s', true);
+    }
 }
 
 // TSX - Transfer Stack Pointer to X
 class InstructionTSX extends InstructionImplied {
     readonly mnemonic = 'TSX';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .then(is16_X(mode) ? 'state.x = state.s;' : 'state.x = (state.x & 0xff00) | (state.s & 0xff);')
+            .then('clock.tickCpu();')
+            .setFlagsNZ(is16_X(mode) ? 'state.x' : '(state.x & 0xff)', is16_X(mode));
+    }
 }
 
 // TXA - Transfer X to Accumulator
 class InstructionTXA extends InstructionImplied {
     readonly mnemonic = 'TXA';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .then(is16_M(mode) ? 'state.a = state.x;' : 'state.a = (state.a & 0xff00) | (state.x & 0xff);')
+            .then('clock.tickCpu();')
+            .setFlagsNZ(is16_M(mode) ? 'state.a' : '(state.a & 0xff)', is16_M(mode));
+    }
 }
 
 // TXS - Transfer X to Stack Pointer
 class InstructionTXS extends InstructionImplied {
     readonly mnemonic = 'TXS';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .then(mode === Mode.em ? 'state.s = (state.x & 0xff) | 0x0100;' : 'state.s = state.x;')
+            .then('clock.tickCpu();');
+    }
 }
 
 // TXY - Transfer X to Y
 class InstructionTXY extends InstructionImplied {
     readonly mnemonic = 'TXY';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .then(is16_X(mode) ? 'state.y = state.x;' : 'state.y = (state.y & 0xff00) | (state.x & 0xff);')
+            .then('clock.tickCpu();')
+            .setFlagsNZ(is16_X(mode) ? 'state.y' : '(state.y & 0xff)', is16_X(mode));
+    }
 }
 
 // TYA - Transfer Y to Accumulator
 class InstructionTYA extends InstructionImplied {
     readonly mnemonic = 'TYA';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .then(is16_M(mode) ? 'state.a = state.y;' : 'state.a = (state.a & 0xff00) | (state.y & 0xff);')
+            .then('clock.tickCpu();')
+            .setFlagsNZ(is16_M(mode) ? 'state.a' : '(state.a & 0xff)', is16_M(mode));
+    }
 }
 
 // TYX - Transfer Y to X
 class InstructionTYX extends InstructionImplied {
     readonly mnemonic = 'TYX';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .then(is16_X(mode) ? 'state.x = state.y;' : 'state.x = (state.x & 0xff00) | (state.y & 0xff);')
+            .then('clock.tickCpu();')
+            .setFlagsNZ(is16_X(mode) ? 'state.x' : '(state.x & 0xff)', is16_X(mode));
+    }
 }
 
 // WAI - Wait for Interrupt
@@ -723,6 +766,36 @@ class InstructionXCE extends InstructionImplied {
             additionalBytes: 0,
             mode,
         };
+    }
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .then(
+                `
+                if (state.p & ${Flag.c}) {
+                    if (state.mode !== ${Mode.em}) {
+                        state.mode = ${Mode.em};
+
+                        state.p &= ${~Flag.c};
+                        state.p |= ${Flag.m | Flag.x};
+                        state.s = (state.s & 0xff) | 0x0100;
+                        state.x &= 0xff;
+                        state.y &= 0xff;
+
+                        state.slowPath |= ${SlowPathReason.modeChange};
+                    }
+                } else {
+                    if (state.mode === ${Mode.em}) {
+                        state.mode = (state.p >>> 4) & 0x03;
+
+                        state.p |= ${Flag.c};
+
+                        state.slowPath |= ${SlowPathReason.modeChange};
+                    }
+                }
+            `,
+            )
+            .tick();
     }
 }
 

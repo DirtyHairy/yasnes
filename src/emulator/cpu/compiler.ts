@@ -451,6 +451,12 @@ export class Compiler {
         return this;
     }
 
+    tick(count = 1): Compiler {
+        if (count > 0) this.chunks.push(count > 1 ? `clock.tickCpu_N(${count});` : 'clock.tickCpu();');
+
+        return this;
+    }
+
     compile(): string {
         return outdent`
         (state, bus, clock, breakCb) => {
