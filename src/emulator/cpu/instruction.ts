@@ -750,11 +750,19 @@ class InstructionXCE extends InstructionImplied {
     }
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler
-            .then(
-                `
-                if (state.p & ${Flag.c}) {
-                    if (state.mode !== ${Mode.em}) {
+        if (mode === Mode.em) {
+            compiler.then(outdent`
+                    if ((state.p & ${Flag.c}) === 0) {
+                        state.mode = (state.p >>> 4) & 0x03;
+
+                        state.p |= ${Flag.c};
+
+                        state.slowPath |= ${SlowPathReason.modeChange};
+                    }
+                `);
+        } else {
+            compiler.then(outdent`
+                    if (state.p & ${Flag.c}) {
                         state.mode = ${Mode.em};
 
                         state.p &= ${~Flag.c};
@@ -765,18 +773,10 @@ class InstructionXCE extends InstructionImplied {
 
                         state.slowPath |= ${SlowPathReason.modeChange};
                     }
-                } else {
-                    if (state.mode === ${Mode.em}) {
-                        state.mode = (state.p >>> 4) & 0x03;
+                `);
+        }
 
-                        state.p |= ${Flag.c};
-
-                        state.slowPath |= ${SlowPathReason.modeChange};
-                    }
-                }
-            `,
-            )
-            .tick();
+        compiler.tick();
     }
 }
 
