@@ -120,7 +120,85 @@ function is16_X(mode: Mode): boolean {
 
 // ADC - Add with Carry
 class InstructionADC extends InstructionWithAddressingMode {
+    immWidthHint = is16_M;
+
     readonly mnemonic = 'ADC';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_M(mode)) {
+            compiler.load(mode, this.addressingMode, true).add(outdent`
+                    if (state.p & ${Flag.d}) {
+                        let res1 =  (state.a & 0x000f) + (op & 0x000f) + (state.p & ${Flag.c});
+                        if (res1 > 0x0009) res1 += 0x0006;
+
+                        let res2 =  (state.a & 0x00f0) + (op & 0x00f0) + (res1 > 0x0009 ? 0x0010 : 0);
+                        if (res2 > 0x0090) res2 += 0x0060;
+
+                        let res3 =  (state.a & 0x0f00) + (op & 0x0f00) + (res2 > 0x0090 ? 0x0100 : 0);
+                        if (res3 > 0x0900) res3 += 0x0600;
+
+                        let res4 =  (state.a & 0xf000) + (op & 0xf000) + (res3 > 0x0900 ? 0x1000 : 0);
+
+                        state.p &= ${~(Flag.c | Flag.z | Flag.v | Flag.n)};
+                        state.p |= (~(state.a ^ op) & (op ^ res4) & 0x8000) >>> 9;
+
+                        if (res4 > 0x9000) {
+                            state.p |= ${Flag.c};
+                            res4 += 0x6000;
+                        }
+
+                        state.a = (res1 & 0x000f) | (res2 & 0x00f0) | (res3 & 0x0f00) | (res4 & 0xf000);
+                    } else {
+                        const res = state.a + op + (state.p & ${Flag.c});
+
+                        state.p &= ${~(Flag.c | Flag.z | Flag.v | Flag.n)};
+                        state.p |= (res >>> 16) & ${Flag.c};
+                        state.p |= (~(state.a ^ op) & (op ^ res) & 0x8000) >>> 9;
+
+                        state.a = res & 0xffff;
+                    }
+
+                    if (state.a === 0) state.p |= ${Flag.z};
+                    state.p |= ((state.a >>> 8) & ${Flag.n});
+                `);
+        } else {
+            compiler.load(mode, this.addressingMode, false).add(outdent`
+                    const op2 = state.a & 0xff;
+                    let res;
+
+                    if (state.p & ${Flag.d}) {
+                        let res1 =  (op2 & 0x0f) + (op & 0x0f) + (state.p & ${Flag.c});
+                        if (res1 > 0x09) res1 += 0x06;
+
+                        let res2 = (op2 & 0xf0) + (op & 0xf0) + (res1 > 0x0f ? 0x10 : 0);
+                        
+                        state.p &= ${~(Flag.c | Flag.z | Flag.v | Flag.n)};
+                        state.p |= (~(op2 ^ op) & (op ^ res2) & 0x80) >>> 1;
+
+                        if (res2 > 0x90) {
+                            state.p |= ${Flag.c};
+                            res2 += 0x60;
+                        }
+
+                        res = (res1 & 0x0f) | (res2 & 0xf0);
+                    } else {
+                        res = op2 + op + (state.p & ${Flag.c});
+
+                        state.p &= ${~(Flag.c | Flag.z | Flag.v | Flag.n)};
+
+                        state.p |= (res >>> 8) & ${Flag.c};
+                        res &= 0xff;
+
+                        state.p |= (~(op2 ^ op) & (op ^ res) & 0x80) >>> 1;
+                    }
+
+                    if (res === 0) state.p |= ${Flag.z};
+                    state.p |= (res & ${Flag.n});
+
+                    state.a = (state.a & 0xff00) | res;
+                `);
+        }
+    }
 }
 
 // AND - Logical AND
@@ -509,6 +587,81 @@ class InstructionSBC extends InstructionWithAddressingMode {
     immWidthHint = is16_M;
 
     readonly mnemonic = 'SBC';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_M(mode)) {
+            compiler.load(mode, this.addressingMode, true).add(outdent`
+                    op = ~op & 0xffff;
+
+                    if (state.p & ${Flag.d}) {
+                        let res1 =  (state.a & 0x000f) + (op & 0x000f) + (state.p & ${Flag.c});
+                        if (res1 <= 0x000f) res1 -= 0x0006;
+
+                        let res2 =  (state.a & 0x00f0) + (op & 0x00f0) + (res1 > 0x000f ? 0x0010 : 0);
+                        if (res2 <= 0x00f0) res2 -= 0x0060;
+
+                        let res3 =  (state.a & 0x0f00) + (op & 0x0f00) + (res2 > 0x00f0 ? 0x0100 : 0);
+                        if (res3 <= 0x0f00) res3 -= 0x0600;
+
+                        let res4 =  (state.a & 0xf000) + (op & 0xf000) + (res3 > 0x0f00 ? 0x1000 : 0);
+
+                        state.p &= ${~(Flag.c | Flag.z | Flag.v | Flag.n)};
+                        state.p |= (~(state.a ^ op) & (op ^ res4) & 0x8000) >>> 9;
+
+                        if (res4 <= 0xf000) res4 -= 0x6000;
+                        else state.p |= ${Flag.c};
+
+                        state.a = (res1 & 0x000f) | (res2 & 0x00f0) | (res3 & 0x0f00) | (res4 & 0xf000);
+                    } else {
+                        const res = state.a + op + (state.p & ${Flag.c});
+
+                        state.p &= ${~(Flag.c | Flag.z | Flag.v | Flag.n)};
+                        state.p |= (res >>> 16) & ${Flag.c};
+                        state.p |= (~(state.a ^ op) & (op ^ res) & 0x8000) >>> 9;
+
+                        state.a = res & 0xffff;
+                    }
+
+                    if (state.a === 0) state.p |= ${Flag.z};
+                    state.p |= ((state.a >>> 8) & ${Flag.n});
+                `);
+        } else {
+            compiler.load(mode, this.addressingMode, false).add(outdent`
+                    op = ~op & 0xff;
+                    const op2 = state.a & 0xff;
+                    let res;
+
+                    if (state.p & ${Flag.d}) {
+                        let res1 =  (op2 & 0x0f) + (op & 0x0f) + (state.p & ${Flag.c});
+                        if (res1 <= 0x0f) res1 -= 0x06;
+
+                        let res2 = (op2 & 0xf0) + (op & 0xf0) + (res1 > 0x0f ? 0x10 : 0);
+                        
+                        state.p &= ${~(Flag.c | Flag.z | Flag.v | Flag.n)};
+                        state.p |= (~(op2 ^ op) & (op ^ res2) & 0x80) >>> 1;
+
+                        if (res2 <= 0xf0) res2 -= 0x60;
+                        else state.p |= ${Flag.c};
+
+                        res = (res1 & 0x0f) | (res2 & 0xf0);
+                    } else {
+                        res = op2 + op + (state.p & ${Flag.c});
+
+                        state.p &= ${~(Flag.c | Flag.z | Flag.v | Flag.n)};
+
+                        state.p |= (res >>> 8) & ${Flag.c};
+                        res &= 0xff;
+
+                        state.p |= (~(op2 ^ op) & (op ^ res) & 0x80) >>> 1;
+                    }
+
+                    if (res === 0) state.p |= ${Flag.z};
+                    state.p |= (res & ${Flag.n});
+
+                    state.a = (state.a & 0xff00) | res;
+                `);
+        }
+    }
 }
 
 // SEC - Set Carry Flag
