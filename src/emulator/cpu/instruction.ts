@@ -2,7 +2,7 @@ import { Bus } from '../bus';
 import { Flag, Mode, SlowPathReason } from './state';
 import { BreakReason } from '../break';
 import { outdent } from 'outdent';
-import { CompilationFlags, Compiler } from './compiler';
+import { CompilationFlags, Compiler, INCREMENT_PC, READ_PC } from './compiler';
 import { DisassembleResult, disassembleWithAddressingMode } from './disassembler';
 import { AddressingMode } from './addressingMode';
 import { hex8 } from '../util';
@@ -253,16 +253,28 @@ class InstructionASL extends InstructionWithAddressingMode {
 // BCC - Branch if Carry Clear
 class InstructionBCC extends InstructionWithAddressingMode {
     readonly mnemonic = 'BCC';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.branch(mode, `(state.p & ${Flag.c}) === 0`);
+    }
 }
 
 // BCS - Branch if Carry Set
 class InstructionBCS extends InstructionWithAddressingMode {
     readonly mnemonic = 'BCS';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.branch(mode, `state.p & ${Flag.c}`);
+    }
 }
 
 // BEQ - Branch if Equal
 class InstructionBEQ extends InstructionWithAddressingMode {
     readonly mnemonic = 'BEQ';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.branch(mode, `state.p & ${Flag.z}`);
+    }
 }
 
 // BIT - Bit Test
@@ -273,21 +285,37 @@ class InstructionBIT extends InstructionWithAddressingMode {
 // BMI - Branch if Minus
 class InstructionBMI extends InstructionWithAddressingMode {
     readonly mnemonic = 'BMI';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.branch(mode, `state.p & ${Flag.n}`);
+    }
 }
 
 // BNE - Branch if Not Equal
 class InstructionBNE extends InstructionWithAddressingMode {
     readonly mnemonic = 'BNE';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.branch(mode, `(state.p & ${Flag.z}) === 0`);
+    }
 }
 
 // BPL - Branch if Plus
 class InstructionBPL extends InstructionWithAddressingMode {
     readonly mnemonic = 'BPL';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.branch(mode, `(state.p & ${Flag.n}) === 0`);
+    }
 }
 
 // BRA - Branch Always
 class InstructionBRA extends InstructionWithAddressingMode {
     readonly mnemonic = 'BRA';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.branch(mode);
+    }
 }
 
 // BRK - Break
@@ -298,16 +326,40 @@ class InstructionBRK extends InstructionWithAddressingMode {
 // BRL - Branch Long
 class InstructionBRL extends InstructionWithAddressingMode {
     readonly mnemonic = 'BRL';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .add(
+                outdent`
+                let ofs = ${READ_PC};
+                ${INCREMENT_PC};
+
+                ofs |= ${READ_PC} << 8;
+                ${INCREMENT_PC};
+
+                state.pc = (state.pc + ((ofs << 16) >> 16)) & 0xffff;
+            `,
+            )
+            .tick();
+    }
 }
 
 // BVC - Branch if Overflow Clear
 class InstructionBVC extends InstructionWithAddressingMode {
     readonly mnemonic = 'BVC';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.branch(mode, `(state.p & ${Flag.v}) === 0`);
+    }
 }
 
 // BVS - Branch if Overflow Set
 class InstructionBVS extends InstructionWithAddressingMode {
     readonly mnemonic = 'BVS';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.branch(mode, `state.p & ${Flag.v}`);
+    }
 }
 
 // CLC - Clear Carry Flag
@@ -342,7 +394,7 @@ class InstructionCLV extends InstructionImplied {
     readonly mnemonic = 'CLV';
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler.add(`state.p &= ${~Flag.v}`).tick();
+        compiler.add(`state.p &= ${~Flag.v};`).tick();
     }
 }
 

@@ -8,8 +8,8 @@ export const enum CompilationFlags {
     none = 0,
 }
 
-const READ_PC = 'bus.read(state.k | state.pc, breakCb)';
-const INCREMENT_PC = 'state.pc = (state.pc + 1) & 0xffff';
+export const READ_PC = 'bus.read(state.k | state.pc, breakCb)';
+export const INCREMENT_PC = 'state.pc = (state.pc + 1) & 0xffff';
 
 export function is16_M(mode: Mode): boolean {
     switch (mode) {
@@ -276,7 +276,7 @@ export class Compiler {
 
                 this.chunks.push(outdent`
                         ptr |= bus.read(ptr0, breakCb) << 8;
-                        ptr = ((ptr | state.dbr) + state.y) & 0xffffff
+                        ptr = ((ptr | state.dbr) + state.y) & 0xffffff;
                     `);
 
                 if (mode === Mode.Mx || mode === Mode.mx || forStore) {
@@ -298,7 +298,7 @@ export class Compiler {
                         ptr |= bus.read((ptr0 + 1) & 0xffff, breakCb) << 8;
                         ptr |= bus.read((ptr0 + 2) & 0xffff, breakCb) << 16;
 
-                        ptr = (ptr  + state.y) & 0xffffff
+                        ptr = (ptr  + state.y) & 0xffffff;
                     `);
 
                 return this;
@@ -370,7 +370,7 @@ export class Compiler {
     }
 
     store8ToPtr(value: string): Compiler {
-        this.chunks.push(`bus.write(ptr, ${value}, breakCb)`);
+        this.chunks.push(`bus.write(ptr, ${value}, breakCb);`);
         return this;
     }
 
@@ -489,6 +489,39 @@ export class Compiler {
                 ? `state.p = (state.p & (${~(Flag.z | Flag.n)})) | ((${value} >>> 8) & ${Flag.n}) | (${value} === 0 ? ${Flag.z} : 0);`
                 : `state.p = (state.p & (${~(Flag.z | Flag.n)})) | (${value} & ${Flag.n}) | (${value} === 0 ? ${Flag.z} : 0);`,
         );
+
+        return this;
+    }
+
+    branch(mode: Mode, condition?: string): Compiler {
+        const tickBranch =
+            mode === Mode.em
+                ? `if ((dest & 0xff00) !== (state.pc & 0xff00)) clock.tickCpu_N(2); else clock.tickCpu();`
+                : `clock.tickCpu();`;
+
+        const takeBranch = outdent`
+            const ofs = ${READ_PC};
+            ${INCREMENT_PC};
+
+            const dest = (state.pc + ((ofs << 24) >> 24)) & 0xffff;
+
+            ${tickBranch}
+
+            state.pc = dest;
+        `;
+
+        if (condition === undefined) {
+            this.add(takeBranch);
+        } else {
+            this.add(outdent`
+                    if (${condition}) {
+                    ${indentString(takeBranch, 4)}
+                    } else {
+                        ${READ_PC};
+                        ${INCREMENT_PC};
+                    }
+                `);
+        }
 
         return this;
     }
