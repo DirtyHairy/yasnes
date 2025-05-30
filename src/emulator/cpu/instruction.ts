@@ -222,6 +222,32 @@ class InstructionAND extends InstructionWithAddressingMode {
 // ASL - Arithmetic Shift Left
 class InstructionASL extends InstructionWithAddressingMode {
     readonly mnemonic = 'ASL';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_M(mode)) {
+            compiler.rmw(
+                mode,
+                this.addressingMode,
+                true,
+                outdent`
+                    let res = (op << 1) & 0xffff;
+                    state.p = (state.p & ${~Flag.c}) | op >>> 15;
+                `,
+            );
+        } else {
+            compiler.rmw(
+                mode,
+                this.addressingMode,
+                false,
+                outdent`
+                    let res = (op << 1) & 0xff;
+                    state.p = (state.p & ${~Flag.c}) | op >>> 7;
+                `,
+            );
+        }
+
+        compiler.setFlagsNZ('res', is16_M(mode));
+    }
 }
 
 // BCC - Branch if Carry Clear
@@ -443,6 +469,32 @@ class InstructionLDY extends InstructionWithAddressingMode {
 // LSR - Logical Shift Right
 class InstructionLSR extends InstructionWithAddressingMode {
     readonly mnemonic = 'LSR';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_M(mode)) {
+            compiler.rmw(
+                mode,
+                this.addressingMode,
+                true,
+                outdent`
+                    let res = (op >>> 1) & 0xffff;
+                    state.p = (state.p & ${~Flag.c}) | (op & ${Flag.c});
+                `,
+            );
+        } else {
+            compiler.rmw(
+                mode,
+                this.addressingMode,
+                false,
+                outdent`
+                    let res = (op >>> 1) & 0xff;
+                    state.p = (state.p & ${~Flag.c}) | (op & ${Flag.c});
+                `,
+            );
+        }
+
+        compiler.setFlagsNZ('res', is16_M(mode));
+    }
 }
 
 // MVN - Block Move Negative
@@ -599,11 +651,67 @@ class InstructionREP extends InstructionWithAddressingMode {
 // ROL - Rotate Left
 class InstructionROL extends InstructionWithAddressingMode {
     readonly mnemonic = 'ROL';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_M(mode)) {
+            compiler.rmw(
+                mode,
+                this.addressingMode,
+                true,
+                outdent`
+                    let res = (op << 1) & 0xffff;
+                    res |= state.p & ${Flag.c};
+                    state.p = (state.p & ${~Flag.c}) | op >>> 15;
+                `,
+            );
+        } else {
+            compiler.rmw(
+                mode,
+                this.addressingMode,
+                false,
+                outdent`
+                    let res = (op << 1) & 0xff;
+                    res |= state.p & ${Flag.c};
+                    state.p = (state.p & ${~Flag.c}) | op >>> 7;
+                `,
+            );
+        }
+
+        compiler.setFlagsNZ('res', is16_M(mode));
+    }
 }
 
 // ROR - Rotate Right
 class InstructionROR extends InstructionWithAddressingMode {
     readonly mnemonic = 'ROR';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_M(mode)) {
+            compiler.rmw(
+                mode,
+                this.addressingMode,
+                true,
+                outdent`
+                    let res = (op >>> 1) & 0xffff;
+                    res |= (state.p & ${Flag.c}) << 15;
+                    state.p = (state.p & ${~Flag.c}) | (op & ${Flag.c});
+                `,
+            );
+        } else {
+            compiler.rmw(
+                mode,
+                this.addressingMode,
+                false,
+                outdent`
+                    let res = (op >>> 1) & 0xff;
+                    res |= (state.p & ${Flag.c}) << 7;
+                    state.p = (state.p & ${~Flag.c}) | (op & ${Flag.c});
+                `,
+            );
+        }
+
+        compiler.setFlagsNZ('res', is16_M(mode));
+    }
 }
 
 // RTI - Return from Interrupt

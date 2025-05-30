@@ -11,6 +11,28 @@ export const enum CompilationFlags {
 const READ_PC = 'bus.read(state.k | state.pc, breakCb)';
 const INCREMENT_PC = 'state.pc = (state.pc + 1) & 0xffff';
 
+export function is16_M(mode: Mode): boolean {
+    switch (mode) {
+        case Mode.mX:
+        case Mode.mx:
+            return true;
+
+        default:
+            return false;
+    }
+}
+
+export function is16_X(mode: Mode): boolean {
+    switch (mode) {
+        case Mode.Mx:
+        case Mode.mx:
+            return true;
+
+        default:
+            return false;
+    }
+}
+
 export class Compiler {
     chunks: Array<string> = [];
 
@@ -407,7 +429,7 @@ export class Compiler {
         }
     }
 
-    load8(mode: Mode, addressingMode: AddressingMode): Compiler {
+    load8(mode: Mode, addressingMode: AddressingMode, forRmw = false): Compiler {
         if (addressingMode === AddressingMode.imm) {
             this.chunks.push(outdent`
                     let op = ${READ_PC};
@@ -417,10 +439,10 @@ export class Compiler {
             return this;
         }
 
-        return this.loadPointer(mode, addressingMode, false).load8FromPtr();
+        return this.loadPointer(mode, addressingMode, forRmw).load8FromPtr();
     }
 
-    load16(mode: Mode, addressingMode: AddressingMode): Compiler {
+    load16(mode: Mode, addressingMode: AddressingMode, forRmw = false): Compiler {
         if (addressingMode === AddressingMode.imm) {
             this.chunks.push(outdent`
                     let op = ${READ_PC};
@@ -433,12 +455,32 @@ export class Compiler {
             return this;
         }
 
-        return this.loadPointer(mode, addressingMode, false).load16FromPtr(addressingMode);
+        return this.loadPointer(mode, addressingMode, forRmw).load16FromPtr(addressingMode);
     }
 
-    load(mode: Mode, addressingMode: AddressingMode, is16: boolean): Compiler {
-        if (is16) return this.load16(mode, addressingMode);
-        else return this.load8(mode, addressingMode);
+    load(mode: Mode, addressingMode: AddressingMode, is16: boolean, forRmw = false): Compiler {
+        if (is16) return this.load16(mode, addressingMode, forRmw);
+        else return this.load8(mode, addressingMode, forRmw);
+    }
+
+    rmw(mode: Mode, addressingMode: AddressingMode, is16: boolean, operation: string): Compiler {
+        if (addressingMode === AddressingMode.implied) {
+            this.chunks.push(is16 ? 'let op = state.a;' : 'let op = state.a & 0xff;');
+        } else {
+            this.load(mode, addressingMode, is16, true);
+        }
+
+        this.chunks.push(operation);
+        this.tick();
+
+        if (addressingMode === AddressingMode.implied) {
+            this.chunks.push(is16 ? 'state.a = res;' : 'state.a = (state.a & 0xff00) | res;');
+        } else {
+            if (is16) this.store16ToPtr('res', addressingMode);
+            else this.store8ToPtr('res');
+        }
+
+        return this;
     }
 
     setFlagsNZ(value: string, is16: boolean): Compiler {
