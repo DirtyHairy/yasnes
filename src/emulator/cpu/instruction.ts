@@ -203,7 +203,20 @@ class InstructionADC extends InstructionWithAddressingMode {
 
 // AND - Logical AND
 class InstructionAND extends InstructionWithAddressingMode {
+    immWidthHint = is16_M;
+
     readonly mnemonic = 'AND';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_M(mode)) {
+            compiler.load(mode, this.addressingMode, true).add('state.a &= op;').setFlagsNZ('state.a', true);
+        } else {
+            compiler
+                .load(mode, this.addressingMode, false)
+                .add('state.a &= (op | 0xff00);')
+                .setFlagsNZ('(state.a & 0xff)', false);
+        }
+    }
 }
 
 // ASL - Arithmetic Shift Left
@@ -344,7 +357,20 @@ class InstructionDEY extends InstructionImplied {
 
 // EOR - Exclusive OR
 class InstructionEOR extends InstructionWithAddressingMode {
+    immWidthHint = is16_M;
+
     readonly mnemonic = 'EOR';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_M(mode)) {
+            compiler.load(mode, this.addressingMode, true).add('state.a ^= op;').setFlagsNZ('state.a', true);
+        } else {
+            compiler
+                .load(mode, this.addressingMode, false)
+                .add('state.a = (state.a & 0xff00) | ((state.a & 0xff) ^ op);')
+                .setFlagsNZ('(state.a & 0xff)', false);
+        }
+    }
 }
 
 // INC - Increment Memory
@@ -440,7 +466,20 @@ class InstructionNOP extends InstructionImplied {
 
 // ORA - Logical OR
 class InstructionORA extends InstructionWithAddressingMode {
+    immWidthHint = is16_M;
+
     readonly mnemonic = 'ORA';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_M(mode)) {
+            compiler.load(mode, this.addressingMode, true).add('state.a |= op;').setFlagsNZ('state.a', true);
+        } else {
+            compiler
+                .load(mode, this.addressingMode, false)
+                .add('state.a |= (op & 0x00ff);')
+                .setFlagsNZ('(state.a & 0xff)', false);
+        }
+    }
 }
 
 // PEA - Push Effective Absolute Address
