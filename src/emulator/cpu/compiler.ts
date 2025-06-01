@@ -3,6 +3,7 @@ import { outdent } from 'outdent';
 import { Flag, Mode } from './state';
 import { AddressingMode } from './addressingMode';
 import { BreakReason } from '../break';
+import { hex16 } from '../util';
 
 export const enum CompilationFlags {
     none = 0,
@@ -522,6 +523,54 @@ export class Compiler {
                     }
                 `);
         }
+
+        return this;
+    }
+
+    push8(mode: Mode, value: string): Compiler {
+        if (mode === Mode.em) {
+            this.chunks.push(outdent`
+                    bus.write(state.s, ${value}, breakCb);
+                    state.s = (state.s & 0xff00) | ((state.s - 1) & 0xff);
+                `);
+        } else {
+            this.chunks.push(outdent`
+                    bus.write(state.s, ${value}, breakCb);
+                    state.s = (state.s - 1) & 0xffff;
+                `);
+        }
+
+        return this;
+    }
+
+    push16(mode: Mode, value: string): Compiler {
+        this.push8(mode, `${value} >>> 8`);
+        return this.push8(mode, `${value} & 0xff`);
+    }
+
+    vector(mode: Mode, addressNative: number, addressEmulation: number, brk = false): Compiler {
+        this.chunks.push(outdent`
+                ${READ_PC};
+                ${INCREMENT_PC};
+            `);
+
+        if (mode === Mode.em) {
+            this.push16(mode, 'state.pc');
+
+            if (brk) this.push8(mode, `state.p | 0x20`);
+            else this.push8(mode, 'state.p');
+        } else {
+            this.push8(mode, `state.k >>> 16`).push16(mode, 'state.pc').push8(mode, 'state.p');
+        }
+
+        this.chunks.push(outdent`
+                state.p |= ${Flag.i};
+                state.p &= ${~Flag.d};
+                state.k = 0;
+
+                state.pc = bus.read(${hex16(mode === Mode.em ? addressEmulation : addressNative)}, breakCb);
+                state.pc |= bus.read(${hex16((mode === Mode.em ? addressEmulation : addressNative) + 1)}, breakCb) << 8;
+            `);
 
         return this;
     }

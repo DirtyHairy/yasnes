@@ -355,6 +355,12 @@ class InstructionBRA extends InstructionWithAddressingMode {
 // BRK - Break
 class InstructionBRK extends InstructionWithAddressingMode {
     readonly mnemonic = 'BRK';
+
+    immWidthHint = (): boolean => false;
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.vector(mode, 0xffe6, 0xfffe, true);
+    }
 }
 
 // BRL - Branch Long
@@ -440,6 +446,12 @@ class InstructionCMP extends InstructionWithAddressingMode {
 // COP - Co-Processor
 class InstructionCOP extends InstructionWithAddressingMode {
     readonly mnemonic = 'COP';
+
+    immWidthHint = (): boolean => false;
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.vector(mode, 0xffe4, 0xfff4);
+    }
 }
 
 // CPX - Compare X Register
@@ -1283,7 +1295,7 @@ export function registerInstructions(): void {
     registerInstruction(0x80, new InstructionBRA(0x80, AddressingMode.rel8));
 
     // BRK - Break
-    registerInstruction(0x00, new InstructionBRK(0x00, AddressingMode.implied));
+    registerInstruction(0x00, new InstructionBRK(0x00, AddressingMode.imm));
 
     // BRL - Branch Long
     registerInstruction(0x82, new InstructionBRL(0x82, AddressingMode.rel16));
