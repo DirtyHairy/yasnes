@@ -17,7 +17,7 @@ export type DispatchFn = (
 ) => number;
 
 export class DispatchCompiler {
-    private instructionFunctionNames = new Map<number, string>();
+    private iFuncNames = new Map<number, string>();
 
     public compileDispatch(): DispatchFn {
         const generator = eval(outdent`
@@ -70,7 +70,7 @@ export class DispatchCompiler {
 
                 addFunction(name, impls[Mode.em]);
 
-                for (let i = 0; i <= 0x04; i++) this.instructionFunctionNames.set(opcode | (i << 8), name);
+                for (let i = 0; i <= 0x04; i++) this.iFuncNames.set(opcode | (i << 8), name);
             } else if (doesNotDependOnM && doesNotDependOnX) {
                 const name_nt = `instr_nt_${tag}`;
                 const name_em = `instr_em_${tag}`;
@@ -78,8 +78,8 @@ export class DispatchCompiler {
                 addFunction(name_nt, impls[Mode.mx], 'nt');
                 addFunction(name_em, impls[Mode.em], 'em');
 
-                for (let i = 0; i <= 0x03; i++) this.instructionFunctionNames.set(opcode | (i << 8), name_nt);
-                this.instructionFunctionNames.set(opcode | 0x400, name_em);
+                for (let i = 0; i <= 0x03; i++) this.iFuncNames.set(opcode | (i << 8), name_nt);
+                this.iFuncNames.set(opcode | 0x400, name_em);
             } else if (doesNotDependOnM) {
                 const name_X = `instr_X_${tag}`;
                 const name_x = `instr_x_${tag}`;
@@ -89,9 +89,9 @@ export class DispatchCompiler {
                 addFunction(name_x, impls[Mode.mx], 'x');
                 if (!emIsRedundant) addFunction(name_em, impls[Mode.em], 'em');
 
-                [Mode.MX, Mode.mX].forEach((mode) => this.instructionFunctionNames.set(opcode | (mode << 8), name_X));
-                [Mode.Mx, Mode.mx].forEach((mode) => this.instructionFunctionNames.set(opcode | (mode << 8), name_x));
-                this.instructionFunctionNames.set(opcode | 0x400, emIsRedundant ? name_X : name_em);
+                [Mode.MX, Mode.mX].forEach((mode) => this.iFuncNames.set(opcode | (mode << 8), name_X));
+                [Mode.Mx, Mode.mx].forEach((mode) => this.iFuncNames.set(opcode | (mode << 8), name_x));
+                this.iFuncNames.set(opcode | 0x400, emIsRedundant ? name_X : name_em);
             } else if (doesNotDependOnX) {
                 const name_M = `instr_M_${tag}`;
                 const name_m = `instr_m_${tag}`;
@@ -101,9 +101,9 @@ export class DispatchCompiler {
                 addFunction(name_m, impls[Mode.mx], 'm');
                 if (!emIsRedundant) addFunction(name_em, impls[Mode.em], 'em');
 
-                [Mode.MX, Mode.Mx].forEach((mode) => this.instructionFunctionNames.set(opcode | (mode << 8), name_M));
-                [Mode.mX, Mode.mx].forEach((mode) => this.instructionFunctionNames.set(opcode | (mode << 8), name_m));
-                this.instructionFunctionNames.set(opcode | 0x400, emIsRedundant ? name_M : name_em);
+                [Mode.MX, Mode.Mx].forEach((mode) => this.iFuncNames.set(opcode | (mode << 8), name_M));
+                [Mode.mX, Mode.mx].forEach((mode) => this.iFuncNames.set(opcode | (mode << 8), name_m));
+                this.iFuncNames.set(opcode | 0x400, emIsRedundant ? name_M : name_em);
             } else {
                 for (let i = 0; i <= (emIsRedundant ? 0x03 : 0x04); i++) {
                     const name = `instr_${modeToString(i as Mode)}_${tag}`;
@@ -114,11 +114,10 @@ export class DispatchCompiler {
                         emIsRedundant && (i as Mode) === Mode.MX ? 'MX,em' : modeToString(i as Mode),
                     );
 
-                    this.instructionFunctionNames.set(opcode | (i << 8), name);
+                    this.iFuncNames.set(opcode | (i << 8), name);
                 }
 
-                if (emIsRedundant)
-                    this.instructionFunctionNames.set(opcode | 0x400, `instr_${modeToString(Mode.MX)}_${tag}`);
+                if (emIsRedundant) this.iFuncNames.set(opcode | 0x400, `instr_${modeToString(Mode.MX)}_${tag}`);
             }
         }
 
@@ -170,7 +169,7 @@ export class DispatchCompiler {
                 (i) =>
                     outdent`
                     case ${hex8(i)}:
-                        ${this.instructionFunctionNames.get(i | (mode << 8))}(state, bus, clock, breakCb);
+                        ${this.iFuncNames.get(i | (mode << 8))}(state, bus, clock, breakCb);
                         break;
             `,
             )
