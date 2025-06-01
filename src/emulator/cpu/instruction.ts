@@ -280,6 +280,40 @@ class InstructionBEQ extends InstructionWithAddressingMode {
 // BIT - Bit Test
 class InstructionBIT extends InstructionWithAddressingMode {
     readonly mnemonic = 'BIT';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        const mask = this.addressingMode === AddressingMode.imm ? ~Flag.z : ~(Flag.z | Flag.v | Flag.n);
+
+        if (is16_M(mode)) {
+            compiler.load(mode, this.addressingMode, true).add(
+                outdent`
+                    state.p &= ${mask};
+                    if ((op & state.a) === 0) state.p |= ${Flag.z};
+                `,
+            );
+
+            if (this.addressingMode !== AddressingMode.imm) {
+                compiler.add(outdent`
+                    state.p |= (op & 0x8000) >>> 8;
+                    state.p |= (op & 0x4000) >>> 8;
+                `);
+            }
+        } else {
+            compiler.load(mode, this.addressingMode, false).add(
+                outdent`
+                    state.p &= ${mask};
+                    if ((op & state.a & 0xff) === 0) state.p |= ${Flag.z};
+                `,
+            );
+
+            if (this.addressingMode !== AddressingMode.imm) {
+                compiler.add(outdent`
+                    state.p |= op & 0x80;
+                    state.p |= op & 0x40;
+                `);
+            }
+        }
+    }
 }
 
 // BMI - Branch if Minus
