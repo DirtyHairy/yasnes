@@ -1,14 +1,17 @@
 import { BreakCallback, BreakReason } from '../break';
 import { Bus } from '../bus';
 import { Clock } from '../clock';
-import { dispatcher } from './globals';
+import { dispatch } from './globals';
 import { copyState, INITIAL_STATE, SlowPathReason, State, stateToString } from './state';
 
 export class Cpu {
     readonly state: State = { ...INITIAL_STATE };
     private breakMessage = '';
 
-    constructor(private bus: Bus, private clock: Clock) {}
+    constructor(
+        private bus: Bus,
+        private clock: Clock,
+    ) {}
 
     reset(): BreakReason {
         copyState(this.state, INITIAL_STATE);
@@ -22,7 +25,7 @@ export class Cpu {
     }
 
     run(instructionLimit: number): number {
-        return dispatcher(instructionLimit, this.state, this.bus, this.clock, this.breakCb);
+        return dispatch(instructionLimit, this.state, this.bus, this.clock, this.breakCb);
     }
 
     getBreakMessage(): string {

@@ -1,6 +1,6 @@
-import { DispatcherCompiler } from './dispatcher';
+import { DispatchCompiler } from './dispatchCompiler';
 import { registerInstructions } from './instruction';
 
 registerInstructions();
 
-export const dispatcher = new DispatcherCompiler().compileDispatcher();
+export const dispatch = new DispatchCompiler().compileDispatch();

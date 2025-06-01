@@ -8,7 +8,7 @@ import indentString from 'indent-string';
 import { hex16, hex8 } from '../util';
 import { CompilationFlags } from './compiler';
 
-export type DispatcherFn = (
+export type DispatchFn = (
     instructionLimit: number,
     state: State,
     bus: Bus,
@@ -16,31 +16,31 @@ export type DispatcherFn = (
     breakCb: BreakCallback,
 ) => number;
 
-export class DispatcherCompiler {
+export class DispatchCompiler {
     private instructionFunctionNames = new Map<number, string>();
 
-    public compileDispatcher(): DispatcherFn {
+    public compileDispatch(): DispatchFn {
         const generator = eval(outdent`
             () => {
-                ${this.generateDispatcher()};
+                ${this.generateDispatch()};
 
                 return dispatcher;
             }
-            `) as () => DispatcherFn;
+            `) as () => DispatchFn;
 
         return generator();
     }
 
-    public generateDispatcher(): string {
+    public generateDispatch(): string {
         let code = `'use strict';\n\n`;
 
         code = this.generateInstructionFunctions(code);
 
         for (let i = 0; i < 5; i++) {
-            code = this.generateSubDispatcher(i as Mode, code) + ' \n\n';
+            code = this.generateSubDispatch(i as Mode, code) + ' \n\n';
         }
 
-        code = this.generateMainDispatcher(code);
+        code = this.generateMainDispatch(code);
 
         return code;
     }
@@ -48,48 +48,76 @@ export class DispatcherCompiler {
     private generateInstructionFunctions(code: string): string {
         for (let opcode = 0; opcode < 0x100; opcode++) {
             const instruction = getInstruction(opcode);
-            const addFunction = (name: string, implementation: string): void => {
+            const addFunction = (name: string, implementation: string, mode?: string): void => {
                 code =
                     code +
                     outdent`
-                    // ${instruction.description()}
+                    // ${instruction.description()}${mode !== undefined ? ' [' + mode + ']' : ''}
                     const ${name} = ${implementation};
                     \n\n`;
             };
 
             const impls = new Array(5).fill(0).map((_, i) => instruction.compile(i as Mode, CompilationFlags.none));
 
-            if (impls.find((x) => x !== impls[0]) === undefined) {
-                const name = `instr_${opcode.toString(16).padStart(2, '0')}`;
+            const doesNotDependOnX = impls[Mode.MX] === impls[Mode.Mx] && impls[Mode.mX] === impls[Mode.mx];
+            const doesNotDependOnM = impls[Mode.MX] === impls[Mode.mX] && impls[Mode.Mx] === impls[Mode.mx];
+            const invariant = doesNotDependOnM && doesNotDependOnX && impls[Mode.em] === impls[Mode.mx];
+            const tag = opcode.toString(16).padStart(2, '0');
 
-                addFunction(name, impls[0]);
+            if (invariant) {
+                const name = `instr_${tag}`;
 
-                impls.forEach((impl, i) => this.instructionFunctionNames.set(opcode | (i << 8), name));
-            } else if (impls.slice(0, 4).find((x) => x !== impls[0]) === undefined) {
-                const name_nt = `instr_nt_${opcode.toString(16).padStart(2, '0')}`;
-                const name_em = `instr_em_${opcode.toString(16).padStart(2, '0')}`;
+                addFunction(name, impls[Mode.em]);
 
-                addFunction(name_nt, impls[0]);
-                addFunction(name_em, impls[4]);
+                for (let i = 0; i <= 0x04; i++) this.instructionFunctionNames.set(opcode | (i << 8), name);
+            } else if (doesNotDependOnM && doesNotDependOnX) {
+                const name_nt = `instr_nt_${tag}`;
+                const name_em = `instr_em_${tag}`;
 
-                impls.forEach((impl, i) =>
-                    this.instructionFunctionNames.set(opcode | (i << 8), i === 4 ? name_em : name_nt),
-                );
+                addFunction(name_nt, impls[Mode.mx], 'nt');
+                addFunction(name_em, impls[Mode.em], 'em');
+
+                for (let i = 0; i <= 0x03; i++) this.instructionFunctionNames.set(opcode | (i << 8), name_nt);
+                this.instructionFunctionNames.set(opcode | 0x400, name_em);
+            } else if (doesNotDependOnM) {
+                const name_X = `instr_X_${tag}`;
+                const name_x = `instr_x_${tag}`;
+                const name_em = `instr_em_${tag}`;
+
+                addFunction(name_X, impls[Mode.mX], 'X');
+                addFunction(name_x, impls[Mode.mx], 'x');
+                addFunction(name_em, impls[Mode.em], 'em');
+
+                [Mode.MX, Mode.mX].forEach((mode) => this.instructionFunctionNames.set(opcode | (mode << 8), name_X));
+                [Mode.Mx, Mode.mx].forEach((mode) => this.instructionFunctionNames.set(opcode | (mode << 8), name_x));
+                this.instructionFunctionNames.set(opcode | 0x400, name_em);
+            } else if (doesNotDependOnX) {
+                const name_M = `instr_M_${tag}`;
+                const name_m = `instr_m_${tag}`;
+                const name_em = `instr_em_${tag}`;
+
+                addFunction(name_M, impls[Mode.Mx], 'M');
+                addFunction(name_m, impls[Mode.mx], 'm');
+                addFunction(name_em, impls[Mode.em], 'em');
+
+                [Mode.MX, Mode.Mx].forEach((mode) => this.instructionFunctionNames.set(opcode | (mode << 8), name_M));
+                [Mode.mX, Mode.mx].forEach((mode) => this.instructionFunctionNames.set(opcode | (mode << 8), name_m));
+                this.instructionFunctionNames.set(opcode | 0x400, name_em);
             } else {
-                impls.forEach((impl, i) => {
-                    const name = `instr_${modeToString(i as Mode)}_${opcode.toString(16).padStart(2, '0')}`;
+                for (let i = 0; i <= 0x04; i++) {
+                    const name = `instr_${modeToString(i as Mode)}_${tag}`;
 
-                    addFunction(name, impl);
+                    addFunction(name, impls[i], modeToString(i as Mode));
 
                     this.instructionFunctionNames.set(opcode | (i << 8), name);
-                });
+                }
             }
         }
 
         return code;
     }
 
-    private generateMainDispatcher(code: string): string {
+    private generateMainDispatch(code: string): string {
         const cases = new Array(5)
             .fill(0)
             .map(
@@ -126,7 +154,7 @@ export class DispatcherCompiler {
         );
     }
 
-    private generateSubDispatcher(mode: Mode, code: string): string {
+    private generateSubDispatch(mode: Mode, code: string): string {
         const cases = new Array(0x100)
             .fill(0)
             .map((_, i) => i)

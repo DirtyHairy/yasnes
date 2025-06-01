@@ -1,5 +1,5 @@
 import '../src/emulator/cpu/globals';
-import { DispatcherCompiler } from '../src/emulator/cpu/dispatcher';
+import { DispatchCompiler } from '../src/emulator/cpu/dispatchCompiler';
 import { writeFileSync } from 'fs';
 
 function usage(): void {
@@ -9,7 +9,7 @@ function usage(): void {
 function main(): void {
     if (process.argv.length !== 3) return usage();
 
-    writeFileSync(process.argv[2], new DispatcherCompiler().generateDispatcher());
+    writeFileSync(process.argv[2], new DispatchCompiler().generateDispatch());
 }
 
 main();
