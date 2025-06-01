@@ -1,3 +1,4 @@
+import { Command } from 'commander';
 import { outdent } from 'outdent';
 import { getInstruction } from '../src/emulator/cpu/instruction';
 import { hex8 } from '../src/emulator/util';
@@ -13,15 +14,6 @@ function parseSuite(x: string): Suite | undefined {
     return { opcode: parseInt(match[1], 16), emulation: !!match[2] };
 }
 
-function usage(): void {
-    console.log(outdent`
-        usage: cpu-test.ts [suite] [index]
-
-        suite: opcode as hex with an optional suffix 'e' to select emulation mode
-        index: test index in suite
-        `);
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function describeError(e: any): string {
     try {
@@ -31,26 +23,7 @@ function describeError(e: any): string {
     }
 }
 
-function main(): void {
-    if (process.argv.length > 4) {
-        usage();
-        return;
-    }
-
-    let suite: Suite | undefined;
-    let index: number | undefined;
-
-    try {
-        suite = parseSuite(process.argv[2]);
-        index = process.argv[3] ? parseInt(process.argv[2], 10) : undefined;
-
-        if (index !== undefined && isNaN(index)) throw new Error(`invalid test index ${index}`);
-    } catch (e) {
-        console.log(describeError(e));
-        usage();
-        return;
-    }
-
+function run(suite?: Suite, indexArg?: number): void {
     const runner = new TestRunner();
 
     if (suite) {
@@ -61,10 +34,10 @@ function main(): void {
             return;
         }
 
-        if (index === undefined) {
+        if (indexArg === undefined) {
             runner.runSuite(suite);
         } else {
-            runner.runOne(suite, index);
+            runner.runOne(suite, indexArg);
         }
     } else {
         for (let opcode = 0; opcode < 0x100; opcode++) {
@@ -74,6 +47,49 @@ function main(): void {
             runner.runSuite({ opcode, emulation: true });
         }
     }
+}
+
+function main(): void {
+    const program = new Command();
+
+    program.name('cpu-test').description('CPU test runner for YASNES').version('0.0.1');
+
+    program
+        .argument('[suite]', 'opcode as hex with optional suffix "e" to select emulation mode (e.g., 0x42e)')
+        .argument('[index]', 'test index in suite', (value) => {
+            const parsedValue = parseInt(value, 10);
+            if (isNaN(parsedValue)) {
+                throw new Error(`invalid test index ${value}`);
+            }
+            return parsedValue;
+        })
+        .addHelpText(
+            'after',
+            outdent`
+            Examples:
+              $ cpu-test                    # Run all implemented opcodes
+              $ cpu-test 0x89               # Run all tests for opcode 0x89 in native mode
+              $ cpu-test 0x89e              # Run all tests for opcode 0x89 in emulation mode
+              $ cpu-test 0x89 5             # Run test index 5 for opcode 0x89 in native mode
+        `,
+        )
+        .action((suiteArg?: string, indexArg?: number) => {
+            let suite: Suite | undefined;
+
+            try {
+                if (suiteArg) {
+                    suite = parseSuite(suiteArg);
+                }
+            } catch (e) {
+                console.log(describeError(e));
+                program.help();
+                return;
+            }
+
+            run(suite, indexArg);
+        });
+
+    program.parse();
 }
 
 main();

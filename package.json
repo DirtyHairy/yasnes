@@ -20,6 +20,7 @@
         "@types/jquery": "^3.5.32",
         "@types/node": "^22.15.17",
         "colors": "^1.4.0",
+        "commander": "^14.0.0",
         "copy-webpack-plugin": "^13.0.0",
         "css-loader": "^7.1.2",
         "dexie": "^4.0.11",
