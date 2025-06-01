@@ -440,7 +440,33 @@ class InstructionCLV extends InstructionImplied {
 
 // CMP - Compare
 class InstructionCMP extends InstructionWithAddressingMode {
+    immWidthHint = is16_M;
+
     readonly mnemonic = 'CMP';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_M(mode)) {
+            compiler.load(mode, this.addressingMode, true).add(outdent`
+                    const res = state.a + (~op & 0xffff) + 1;
+
+                    state.p &= ${~(Flag.c | Flag.n | Flag.z)}
+
+                    state.p |= (res >>> 8) & ${Flag.n};
+                    state.p |= (res >>> 16) & ${Flag.c};
+                    if ((res & 0xffff) === 0) state.p |= ${Flag.z};
+                `);
+        } else {
+            compiler.load(mode, this.addressingMode, false).add(outdent`
+                    const res = (state.a & 0xff) + (~op & 0xff) + 1;
+
+                    state.p &= ${~(Flag.c | Flag.n | Flag.z)}
+
+                    state.p |= res & ${Flag.n};
+                    state.p |= (res >>> 8) & ${Flag.c};
+                    if ((res & 0xff) === 0) state.p |= ${Flag.z};
+                `);
+        }
+    }
 }
 
 // COP - Co-Processor
@@ -456,12 +482,64 @@ class InstructionCOP extends InstructionWithAddressingMode {
 
 // CPX - Compare X Register
 class InstructionCPX extends InstructionWithAddressingMode {
+    immWidthHint = is16_X;
+
     readonly mnemonic = 'CPX';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_X(mode)) {
+            compiler.load(mode, this.addressingMode, true).add(outdent`
+                    const res = state.x + (~op & 0xffff) + 1;
+
+                    state.p &= ${~(Flag.c | Flag.n | Flag.z)}
+
+                    state.p |= (res >>> 8) & ${Flag.n};
+                    state.p |= (res >>> 16) & ${Flag.c};
+                    if ((res & 0xffff) === 0) state.p |= ${Flag.z};
+                `);
+        } else {
+            compiler.load(mode, this.addressingMode, false).add(outdent`
+                    const res = (state.x & 0xff) + (~op & 0xff) + 1;
+
+                    state.p &= ${~(Flag.c | Flag.n | Flag.z)}
+
+                    state.p |= res & ${Flag.n};
+                    state.p |= (res >>> 8) & ${Flag.c};
+                    if ((res & 0xff) === 0) state.p |= ${Flag.z};
+                `);
+        }
+    }
 }
 
 // CPY - Compare Y Register
 class InstructionCPY extends InstructionWithAddressingMode {
+    immWidthHint = is16_X;
+
     readonly mnemonic = 'CPY';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_X(mode)) {
+            compiler.load(mode, this.addressingMode, true).add(outdent`
+                    const res = state.y + (~op & 0xffff) + 1;
+
+                    state.p &= ${~(Flag.c | Flag.n | Flag.z)}
+
+                    state.p |= (res >>> 8) & ${Flag.n};
+                    state.p |= (res >>> 16) & ${Flag.c};
+                    if ((res & 0xffff) === 0) state.p |= ${Flag.z};
+                `);
+        } else {
+            compiler.load(mode, this.addressingMode, false).add(outdent`
+                    const res = (state.y & 0xff) + (~op & 0xff) + 1;
+
+                    state.p &= ${~(Flag.c | Flag.n | Flag.z)}
+
+                    state.p |= res & ${Flag.n};
+                    state.p |= (res >>> 8) & ${Flag.c};
+                    if ((res & 0xff) === 0) state.p |= ${Flag.z};
+                `);
+        }
+    }
 }
 
 // DEC - Decrement Memory
