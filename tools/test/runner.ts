@@ -114,7 +114,7 @@ export class TestRunner {
         this.cpu = new Cpu(this.bus, this.clock);
     }
 
-    runOne(suite: Suite, index: number): void {
+    runOne(suite: Suite, index: number): boolean {
         const fixtures = loadSuite(suite);
         const instruction = getInstruction(suite.opcode);
         const description = `${hex8(suite.opcode)} (${suite.emulation ? 'em' : 'nt'}) ${instruction.description()}`;
@@ -123,6 +123,7 @@ export class TestRunner {
             this.execute(fixtures[index]);
 
             process.stdout.write(green(`${description} SUCCESS`) + '\n');
+            return true;
         } catch (e) {
             process.stdout.write(red(`${description} FAIL`) + '\n');
 
@@ -130,10 +131,11 @@ export class TestRunner {
 
             process.stdout.write(describeError(e));
             process.stdout.write('\n\n');
+            return false;
         }
     }
 
-    runSuite(suite: Suite): void {
+    runSuite(suite: Suite): boolean {
         const fixtures = loadSuite(suite);
         const instruction = getInstruction(suite.opcode);
         const description = `${hex8(suite.opcode)} (${suite.emulation ? 'em' : 'nt'}) ${instruction.description()}`;
@@ -155,6 +157,7 @@ export class TestRunner {
             }
 
             process.stdout.write('   ' + green('PASS') + '\n');
+            return true;
         } catch (e) {
             process.stdout.write(''.padEnd(remaining + 3, ' ') + red('FAIL') + '\n');
             process.stdout.write(red(`${description} failed at index ${i}:` + '\n\n'));
@@ -163,6 +166,7 @@ export class TestRunner {
 
             process.stdout.write(describeError(e));
             process.stdout.write('\n\n');
+            return false;
         }
     }
 

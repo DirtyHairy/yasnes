@@ -4,6 +4,7 @@ import { getInstruction } from '../src/emulator/cpu/instruction';
 import { hex8 } from '../src/emulator/util';
 import '../src/emulator/cpu/globals';
 import { Suite, TestRunner } from './test/runner';
+import { green, red } from 'colors';
 
 function parseSuite(x: string): Suite | undefined {
     if (x === undefined) return undefined;
@@ -23,7 +24,7 @@ function describeError(e: any): string {
     }
 }
 
-function run(suite?: Suite, indexArg?: number): void {
+function run(suite?: Suite, indexArg?: number, stopOnFail = false): void {
     const runner = new TestRunner();
 
     if (suite) {
@@ -40,11 +41,47 @@ function run(suite?: Suite, indexArg?: number): void {
             runner.runOne(suite, indexArg);
         }
     } else {
+        let suitesOk = 0;
+        let suitesFailed = 0;
+        let opcodesOk = 0;
+        let opcodesFailed = 0;
+        let ok = true;
+
+        const runSuite = (suite: Suite): boolean => {
+            if (!runner.runSuite(suite)) {
+                ok = false;
+                suitesFailed++;
+
+                if (stopOnFail) {
+                    opcodesFailed++;
+                    return false;
+                }
+            } else {
+                suitesOk++;
+            }
+
+            return true;
+        };
+
         for (let opcode = 0; opcode < 0x100; opcode++) {
             if (!getInstruction(opcode).isImplemented()) continue;
+            ok = true;
 
-            runner.runSuite({ opcode, emulation: false });
-            runner.runSuite({ opcode, emulation: true });
+            if (!runSuite({ opcode, emulation: false })) break;
+            if (!runSuite({ opcode, emulation: true })) break;
+
+            if (ok) opcodesOk++;
+            else opcodesFailed++;
+        }
+
+        console.log();
+
+        if (suitesOk > 0 || opcodesOk > 0) {
+            console.log(`${green('PASSED')} ${suitesOk} suites, ${opcodesOk} opcodes`);
+        }
+
+        if (suitesFailed > 0 || opcodesFailed > 0) {
+            console.log(`${red('FAILED')} ${suitesFailed} suites, ${opcodesFailed} opcodes`);
         }
     }
 }
@@ -63,6 +100,7 @@ function main(): void {
             }
             return parsedValue;
         })
+        .option('-s, --stop-on-fail', 'stop on first failing suite')
         .addHelpText(
             'after',
             outdent`
@@ -71,9 +109,10 @@ function main(): void {
               $ cpu-test 0x89               # Run all tests for opcode 0x89 in native mode
               $ cpu-test 0x89e              # Run all tests for opcode 0x89 in emulation mode
               $ cpu-test 0x89 5             # Run test index 5 for opcode 0x89 in native mode
+              $ cpu-test -s                 # Run all implemented opcodes, stop on first failure
         `,
         )
-        .action((suiteArg?: string, indexArg?: number) => {
+        .action((suiteArg?: string, indexArg?: number, options?: { stopOnFail?: boolean }) => {
             let suite: Suite | undefined;
 
             try {
@@ -86,7 +125,7 @@ function main(): void {
                 return;
             }
 
-            run(suite, indexArg);
+            run(suite, indexArg, options?.stopOnFail);
         });
 
     program.parse();
