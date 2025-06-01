@@ -24,65 +24,66 @@ function describeError(e: any): string {
     }
 }
 
-function run(suite?: Suite, indexArg?: number, stopOnFail = false): void {
+function runOne(suite: Suite, indexArg?: number): void {
+    const instruction = getInstruction(suite.opcode);
     const runner = new TestRunner();
 
-    if (suite) {
-        const instruction = getInstruction(suite.opcode);
+    if (!instruction.isImplemented()) {
+        console.log(`opcode ${hex8(suite.opcode)} is not implemented`);
+        return;
+    }
 
-        if (!instruction.isImplemented()) {
-            console.log(`opcode ${hex8(suite.opcode)} is not implemented`);
-            return;
-        }
-
-        if (indexArg === undefined) {
-            runner.runSuite(suite);
-        } else {
-            runner.runOne(suite, indexArg);
-        }
+    if (indexArg === undefined) {
+        runner.runSuite(suite);
     } else {
-        let suitesOk = 0;
-        let suitesFailed = 0;
-        let opcodesOk = 0;
-        let opcodesFailed = 0;
-        let ok = true;
+        runner.runOne(suite, indexArg);
+    }
+}
 
-        const runSuite = (suite: Suite): boolean => {
-            if (!runner.runSuite(suite)) {
-                ok = false;
-                suitesFailed++;
+function runAll(stopOnFail = false): void {
+    const runner = new TestRunner();
 
-                if (stopOnFail) {
-                    opcodesFailed++;
-                    return false;
-                }
-            } else {
-                suitesOk++;
+    let suitesOk = 0;
+    let suitesFailed = 0;
+    let opcodesOk = 0;
+    let opcodesFailed = 0;
+    let ok = true;
+
+    const runSuite = (suite: Suite): boolean => {
+        if (!runner.runSuite(suite)) {
+            ok = false;
+            suitesFailed++;
+
+            if (stopOnFail) {
+                opcodesFailed++;
+                return false;
             }
-
-            return true;
-        };
-
-        for (let opcode = 0; opcode < 0x100; opcode++) {
-            if (!getInstruction(opcode).isImplemented()) continue;
-            ok = true;
-
-            if (!runSuite({ opcode, emulation: false })) break;
-            if (!runSuite({ opcode, emulation: true })) break;
-
-            if (ok) opcodesOk++;
-            else opcodesFailed++;
+        } else {
+            suitesOk++;
         }
 
-        console.log();
+        return true;
+    };
 
-        if (suitesOk > 0 || opcodesOk > 0) {
-            console.log(`${green('PASSED')} ${suitesOk} suites, ${opcodesOk} opcodes`);
-        }
+    for (let opcode = 0; opcode < 0x100; opcode++) {
+        if (!getInstruction(opcode).isImplemented()) continue;
+        ok = true;
 
-        if (suitesFailed > 0 || opcodesFailed > 0) {
-            console.log(`${red('FAILED')} ${suitesFailed} suites, ${opcodesFailed} opcodes`);
-        }
+        if (!runSuite({ opcode, emulation: false })) break;
+        if (!runSuite({ opcode, emulation: true })) break;
+
+        if (ok) opcodesOk++;
+        else opcodesFailed++;
+    }
+
+    console.log();
+
+    if (suitesOk > 0 || opcodesOk > 0) {
+        console.log(`${green('PASSED')} ${suitesOk} suites, ${opcodesOk} opcodes`);
+    }
+
+    if (suitesFailed > 0 || opcodesFailed > 0) {
+        console.log(`${red('FAILED')} ${suitesFailed} suites, ${opcodesFailed} opcodes`);
     }
 }
 
@@ -125,7 +126,11 @@ function main(): void {
                 return;
             }
 
-            run(suite, indexArg, options?.stopOnFail);
+            if (suite) {
+                runOne(suite, indexArg);
+            } else {
+                runAll(options?.stopOnFail);
+            }
         });
 
     program.parse();
