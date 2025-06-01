@@ -61,6 +61,7 @@ export class DispatchCompiler {
 
             const doesNotDependOnX = impls[Mode.MX] === impls[Mode.Mx] && impls[Mode.mX] === impls[Mode.mx];
             const doesNotDependOnM = impls[Mode.MX] === impls[Mode.mX] && impls[Mode.Mx] === impls[Mode.mx];
+            const emIsRedundant = impls[Mode.MX] === impls[Mode.em];
             const invariant = doesNotDependOnM && doesNotDependOnX && impls[Mode.em] === impls[Mode.mx];
             const tag = opcode.toString(16).padStart(2, '0');
 
@@ -84,33 +85,40 @@ export class DispatchCompiler {
                 const name_x = `instr_x_${tag}`;
                 const name_em = `instr_em_${tag}`;
 
-                addFunction(name_X, impls[Mode.mX], 'X');
+                addFunction(name_X, impls[Mode.mX], emIsRedundant ? 'X,em' : 'M');
                 addFunction(name_x, impls[Mode.mx], 'x');
-                addFunction(name_em, impls[Mode.em], 'em');
+                if (!emIsRedundant) addFunction(name_em, impls[Mode.em], 'em');
 
                 [Mode.MX, Mode.mX].forEach((mode) => this.instructionFunctionNames.set(opcode | (mode << 8), name_X));
                 [Mode.Mx, Mode.mx].forEach((mode) => this.instructionFunctionNames.set(opcode | (mode << 8), name_x));
-                this.instructionFunctionNames.set(opcode | 0x400, name_em);
+                this.instructionFunctionNames.set(opcode | 0x400, emIsRedundant ? name_X : name_em);
             } else if (doesNotDependOnX) {
                 const name_M = `instr_M_${tag}`;
                 const name_m = `instr_m_${tag}`;
                 const name_em = `instr_em_${tag}`;
 
-                addFunction(name_M, impls[Mode.Mx], 'M');
+                addFunction(name_M, impls[Mode.Mx], emIsRedundant ? 'M,em' : 'M');
                 addFunction(name_m, impls[Mode.mx], 'm');
-                addFunction(name_em, impls[Mode.em], 'em');
+                if (!emIsRedundant) addFunction(name_em, impls[Mode.em], 'em');
 
                 [Mode.MX, Mode.Mx].forEach((mode) => this.instructionFunctionNames.set(opcode | (mode << 8), name_M));
                 [Mode.mX, Mode.mx].forEach((mode) => this.instructionFunctionNames.set(opcode | (mode << 8), name_m));
-                this.instructionFunctionNames.set(opcode | 0x400, name_em);
+                this.instructionFunctionNames.set(opcode | 0x400, emIsRedundant ? name_M : name_em);
             } else {
-                for (let i = 0; i <= 0x04; i++) {
+                for (let i = 0; i <= (emIsRedundant ? 0x03 : 0x04); i++) {
                     const name = `instr_${modeToString(i as Mode)}_${tag}`;
 
-                    addFunction(name, impls[i], modeToString(i as Mode));
+                    addFunction(
+                        name,
+                        impls[i],
+                        emIsRedundant && (i as Mode) === Mode.MX ? 'MX,em' : modeToString(i as Mode),
+                    );
 
                     this.instructionFunctionNames.set(opcode | (i << 8), name);
                 }
+
+                if (emIsRedundant)
+                    this.instructionFunctionNames.set(opcode | 0x400, `instr_${modeToString(Mode.MX)}_${tag}`);
             }
         }
 
