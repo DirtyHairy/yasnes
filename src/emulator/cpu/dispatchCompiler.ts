@@ -182,7 +182,7 @@ export class DispatchCompiler {
         function ${this.subDispatcherName(mode)}(instructionLimit, state, bus, clock, breakCb) {
             let instructions = 0;
             while (instructions < instructionLimit) {
-                const opcode = bus.read(state.k | state.pc);
+                const opcode = bus.read(state.k | state.pc, breakCb);
                 state.pc = (state.pc + 1) & 0xffff;
 
                 switch (opcode) {

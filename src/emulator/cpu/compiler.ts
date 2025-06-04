@@ -45,7 +45,7 @@ export class Compiler {
         return this;
     }
 
-    loadPointer(mode: Mode, addressingMode: AddressingMode, forStore: boolean): Compiler {
+    loadPointer(mode: Mode, addressingMode: AddressingMode, forStore = false): Compiler {
         switch (addressingMode) {
             case AddressingMode.abs:
                 this.chunks.push(outdent`
@@ -99,6 +99,63 @@ export class Compiler {
                 } else {
                     this.chunks.push(`if ((ptr & 0xff) < state.y) clock.tickCpu();`);
                 }
+
+                return this;
+
+            case AddressingMode.abs_16:
+                this.chunks.push(
+                    outdent`
+                    let ptr0 = ${READ_PC};
+                    ${INCREMENT_PC};
+
+                    ptr0 |= (${READ_PC}) << 8;
+                    ${INCREMENT_PC};
+
+                    let ptr = bus.read(ptr0, breakCb);
+                    ptr |= bus.read((ptr0 + 1) & 0xffff, breakCb) << 8;
+                    `,
+                );
+
+                return this;
+
+            case AddressingMode.abs_x_16:
+                this.chunks.push(
+                    outdent`
+                    let ptr0 = ${READ_PC};
+                    ${INCREMENT_PC};
+
+                    ptr0 |= (${READ_PC}) << 8;
+                    ${INCREMENT_PC};
+
+                    clock.tickCpu();
+
+                    ptr0 = (ptr0 + state.x) & 0xffff;
+
+                    let ptr = bus.read(state.k | ptr0, breakCb);
+                    ptr |= bus.read(state.k | ((ptr0 + 1) & 0xffff), breakCb) << 8;
+                    `,
+                );
+
+                return this;
+
+            case AddressingMode.abs_24:
+                this.chunks.push(
+                    outdent`
+                    let ptr0 = ${READ_PC};
+                    ${INCREMENT_PC};
+
+                    ptr0 |= (${READ_PC}) << 8;
+                    ${INCREMENT_PC};
+
+                    let ptr = bus.read(ptr0, breakCb);
+                    ptr0 = (ptr0 + 1) & 0xffff;
+
+                    ptr |= bus.read(ptr0, breakCb) << 8;
+                    ptr0 = (ptr0 + 1) & 0xffff;
+
+                    ptr |= bus.read(ptr0, breakCb) << 16;
+                    `,
+                );
 
                 return this;
 
@@ -546,6 +603,12 @@ export class Compiler {
     push16(mode: Mode, value: string): Compiler {
         this.push8(mode, `${value} >>> 8`);
         return this.push8(mode, `${value} & 0xff`);
+    }
+
+    fixupSP(mode: Mode): Compiler {
+        if (mode === Mode.em) this.chunks.push('state.s = (state.s & 0xff) | 0x0100');
+
+        return this;
     }
 
     vector(mode: Mode, addressNative: number, addressEmulation: number, brk = false): Compiler {

@@ -545,16 +545,40 @@ class InstructionCPY extends InstructionWithAddressingMode {
 // DEC - Decrement Memory
 class InstructionDEC extends InstructionWithAddressingMode {
     readonly mnemonic = 'DEC';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_M(mode)) {
+            compiler.rmw(mode, this.addressingMode, true, 'let res = (op - 1) & 0xffff;');
+        } else {
+            compiler.rmw(mode, this.addressingMode, false, 'let res = (op - 1) & 0xff;');
+        }
+
+        compiler.setFlagsNZ('res', is16_M(mode));
+    }
 }
 
 // DEX - Decrement X Register
 class InstructionDEX extends InstructionImplied {
     readonly mnemonic = 'DEX';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .add(`state.x = (state.x - 1) & ${is16_X(mode) ? '0xffff' : '0xff'}`)
+            .tick()
+            .setFlagsNZ('state.x', is16_X(mode));
+    }
 }
 
 // DEY - Decrement Y Register
 class InstructionDEY extends InstructionImplied {
     readonly mnemonic = 'DEY';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .add(`state.y = (state.y - 1) & ${is16_X(mode) ? '0xffff' : '0xff'}`)
+            .tick()
+            .setFlagsNZ('state.y', is16_X(mode));
+    }
 }
 
 // EOR - Exclusive OR
@@ -578,26 +602,134 @@ class InstructionEOR extends InstructionWithAddressingMode {
 // INC - Increment Memory
 class InstructionINC extends InstructionWithAddressingMode {
     readonly mnemonic = 'INC';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_M(mode)) {
+            compiler.rmw(mode, this.addressingMode, true, 'let res = (op + 1) & 0xffff;');
+        } else {
+            compiler.rmw(mode, this.addressingMode, false, 'let res = (op + 1) & 0xff;');
+        }
+
+        compiler.setFlagsNZ('res', is16_M(mode));
+    }
 }
 
 // INX - Increment X Register
 class InstructionINX extends InstructionImplied {
     readonly mnemonic = 'INX';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .add(`state.x = (state.x + 1) & ${is16_X(mode) ? '0xffff' : '0xff'}`)
+            .tick()
+            .setFlagsNZ('state.x', is16_X(mode));
+    }
 }
 
 // INY - Increment Y Register
 class InstructionINY extends InstructionImplied {
     readonly mnemonic = 'INY';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .add(`state.y = (state.y + 1) & ${is16_X(mode) ? '0xffff' : '0xff'}`)
+            .tick()
+            .setFlagsNZ('state.y', is16_X(mode));
+    }
 }
 
 // JMP - Jump
 class InstructionJMP extends InstructionWithAddressingMode {
     readonly mnemonic = 'JMP';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.loadPointer(mode, this.addressingMode);
+
+        switch (this.addressingMode) {
+            case AddressingMode.abs_24:
+            case AddressingMode.long:
+                compiler.add(outdent`
+                        state.pc = ptr & 0xffff;
+                        state.k = ptr & 0xff0000;
+                    `);
+
+                break;
+
+            default:
+                compiler.add('state.pc = ptr & 0xffff;');
+                break;
+        }
+    }
+}
+
+// JSL - Jump to Subroutine Long
+class InstructionJSL extends InstructionWithAddressingMode {
+    readonly mnemonic = 'JSL';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .add(
+                outdent`
+                    let ptr = ${READ_PC};
+                    ${INCREMENT_PC};
+
+                    ptr |= (${READ_PC}) << 8;
+                    ${INCREMENT_PC};
+                `,
+            )
+            .push8(Mode.mx, 'state.k >> 16')
+            .tick()
+            .add(outdent`state.k = (${READ_PC}) << 16;`)
+            .push16(Mode.mx, 'state.pc')
+            .add('state.pc = ptr;')
+            .fixupSP(mode);
+    }
 }
 
 // JSR - Jump to Subroutine
 class InstructionJSR extends InstructionWithAddressingMode {
     readonly mnemonic = 'JSR';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (this.addressingMode === AddressingMode.abs_x_16) {
+            compiler
+                .add(
+                    outdent`
+                        let ptr0 = ${READ_PC};
+                        ${INCREMENT_PC};
+                    `,
+                )
+                .push16(Mode.mx, 'state.pc')
+                .add(
+                    outdent`
+                        ptr0 |= (${READ_PC}) << 8;
+                        ${INCREMENT_PC};
+                    `,
+                )
+                .tick()
+                .add(
+                    outdent`
+                        ptr0 = (ptr0 + state.x) & 0xffff;
+                        let ptr = bus.read(ptr0 | state.k, breakCb);
+
+                        ptr0 = (ptr0 + 1) & 0xffff;
+                        ptr |= bus.read(ptr0 | state.k, breakCb) << 8;
+
+                        state.pc = ptr;
+                    `,
+                )
+                .fixupSP(mode);
+
+            return;
+        }
+
+        compiler
+            .loadPointer(mode, this.addressingMode)
+            .tick()
+            .add('state.pc = (state.pc - 1) & 0xffff')
+            .push16(mode, 'state.pc')
+            .add('state.pc = ptr & 0xffff;');
+    }
 }
 
 // LDA - Load Accumulator
@@ -1474,11 +1606,13 @@ export function registerInstructions(): void {
     registerInstruction(0x5c, new InstructionJMP(0x5c, AddressingMode.long));
     registerInstruction(0x6c, new InstructionJMP(0x6c, AddressingMode.abs_16));
     registerInstruction(0x7c, new InstructionJMP(0x7c, AddressingMode.abs_x_16));
-    registerInstruction(0xdc, new InstructionJMP(0xdc, AddressingMode.abs_16));
+    registerInstruction(0xdc, new InstructionJMP(0xdc, AddressingMode.abs_24));
+
+    // JSR - Jump to Subroutine Long
+    registerInstruction(0x22, new InstructionJSL(0x22, AddressingMode.long));
 
     // JSR - Jump to Subroutine
     registerInstruction(0x20, new InstructionJSR(0x20, AddressingMode.abs));
-    registerInstruction(0x22, new InstructionJSR(0x22, AddressingMode.long));
     registerInstruction(0xfc, new InstructionJSR(0xfc, AddressingMode.abs_x_16));
 
     // LDA - Load Accumulator
