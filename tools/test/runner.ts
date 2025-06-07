@@ -1,15 +1,7 @@
 import { outdent } from 'outdent';
 import { BreakReason } from '../../src/emulator/break';
 import { Cpu } from '../../src/emulator/cpu/cpu';
-import {
-    compareState,
-    Flag,
-    INITIAL_STATE,
-    Mode,
-    SlowPathReason,
-    State,
-    stateToString,
-} from '../../src/emulator/cpu/state';
+import { compareState, Flag, INITIAL_STATE, Mode, State, stateToString } from '../../src/emulator/cpu/state';
 import { BusTest } from './busTest';
 import { ClockTest } from './clockTest';
 import { readFileSync } from 'fs';

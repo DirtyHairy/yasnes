@@ -806,9 +806,8 @@ class InstructionLSR extends InstructionWithAddressingMode {
 }
 
 // MVN - Block Move Negative
-class InstructionMVN extends InstructionWithAddressingMode {
-    readonly mnemonic = 'MVN';
 
+abstract class InstructionMove extends InstructionWithAddressingMode {
     protected build(mode: Mode, compiler: Compiler): void {
         compiler
             .add(
@@ -822,8 +821,8 @@ class InstructionMVN extends InstructionWithAddressingMode {
                     const data = bus.read(sourceBank | state.x, breakCb);
                     bus.write(state.dbr | state.y, data, breakCb);
 
-                    state.x = (state.x + 1) & ${is16_X(mode) ? '0xffff' : '0xff'};
-                    state.y = (state.y + 1) & ${is16_X(mode) ? '0xffff' : '0xff'};
+                    state.x = (state.x ${this.stepOperator()}) & ${is16_X(mode) ? '0xffff' : '0xff'};
+                    state.y = (state.y ${this.stepOperator()}) & ${is16_X(mode) ? '0xffff' : '0xff'};
                     state.a = (state.a - 1) & 0xffff;
 
                     if (state.a !== 0xffff) state.pc = (state.pc - 3) & 0xffff;
@@ -831,33 +830,24 @@ class InstructionMVN extends InstructionWithAddressingMode {
             )
             .tick(2);
     }
+
+    protected abstract stepOperator(): string;
+}
+
+class InstructionMVN extends InstructionMove {
+    readonly mnemonic = 'MVN';
+
+    protected stepOperator(): string {
+        return '+ 1';
+    }
 }
 
 // MVP - Block Move Positive
-class InstructionMVP extends InstructionWithAddressingMode {
+class InstructionMVP extends InstructionMove {
     readonly mnemonic = 'MVP';
 
-    protected build(mode: Mode, compiler: Compiler): void {
-        compiler
-            .add(
-                outdent`
-                    const sourceBank = (${READ_PC}) << 16;
-                    ${INCREMENT_PC};
-
-                    state.dbr = (${READ_PC}) << 16;
-                    ${INCREMENT_PC};
-                    
-                    const data = bus.read(sourceBank | state.x, breakCb);
-                    bus.write(state.dbr | state.y, data, breakCb);
-
-                    state.x = (state.x - 1) & ${is16_X(mode) ? '0xffff' : '0xff'};
-                    state.y = (state.y - 1) & ${is16_X(mode) ? '0xffff' : '0xff'};
-                    state.a = (state.a - 1) & 0xffff;
-
-                    if (state.a !== 0xffff) state.pc = (state.pc - 3) & 0xffff;
-                `,
-            )
-            .tick(2);
+    protected stepOperator(): string {
+        return '- 1';
     }
 }
 
