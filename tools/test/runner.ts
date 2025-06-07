@@ -107,12 +107,15 @@ export class TestRunner {
     }
 
     runOne(suite: Suite, index: number): boolean {
+        // The suites for 0x44 and 0x54 seem to be bad
+        if (suite.opcode === 0x44 || suite.opcode === 0x54) return true;
+
         const fixtures = loadSuite(suite);
         const instruction = getInstruction(suite.opcode);
         const description = `${hex8(suite.opcode)} (${suite.emulation ? 'em' : 'nt'}) ${instruction.description()}`;
 
         try {
-            this.execute(fixtures[index], suite.opcode);
+            this.execute(fixtures[index]);
 
             process.stdout.write(green(`${description} SUCCESS`) + '\n');
             return true;
@@ -128,6 +131,9 @@ export class TestRunner {
     }
 
     runSuite(suite: Suite): boolean {
+        // The suites for 0x44 and 0x54 seem to be bad
+        if (suite.opcode === 0x44 || suite.opcode === 0x54) return true;
+
         const fixtures = loadSuite(suite);
         const instruction = getInstruction(suite.opcode);
         const description = `${hex8(suite.opcode)} (${suite.emulation ? 'em' : 'nt'}) ${instruction.description()}`;
@@ -145,7 +151,7 @@ export class TestRunner {
                     remaining--;
                 }
 
-                this.execute(fixtures[i], suite.opcode);
+                this.execute(fixtures[i]);
             }
 
             process.stdout.write('   ' + green('PASS') + '\n');
@@ -162,10 +168,7 @@ export class TestRunner {
         }
     }
 
-    private execute(fixture: Fixture, opcode: number): void {
-        // The suites for 0x44 and 0x54 seem to be bad
-        if (opcode === 0x44 || opcode === 0x54) return;
-
+    private execute(fixture: Fixture): void {
         this.cpu.reset();
         this.bus.reset();
         this.clock.reset();

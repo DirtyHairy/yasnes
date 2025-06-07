@@ -368,19 +368,7 @@ class InstructionBRL extends InstructionWithAddressingMode {
     readonly mnemonic = 'BRL';
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler
-            .add(
-                outdent`
-                let ofs = ${READ_PC};
-                ${INCREMENT_PC};
-
-                ofs |= ${READ_PC} << 8;
-                ${INCREMENT_PC};
-
-                state.pc = (state.pc + ((ofs << 16) >> 16)) & 0xffff;
-            `,
-            )
-            .tick();
+        compiler.loadPointer(mode, this.addressingMode, true).add('state.pc = ptr;').tick();
     }
 }
 
@@ -879,53 +867,106 @@ class InstructionORA extends InstructionWithAddressingMode {
 }
 
 // PEA - Push Effective Absolute Address
-class InstructionPEA extends InstructionWithAddressingMode {
+abstract class InstructionPushPtr extends InstructionWithAddressingMode {
+    protected extraCycles = 0;
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .loadPointer(mode === Mode.em ? Mode.MX : mode, this.addressingMode)
+            .tick(this.extraCycles)
+            .push16(Mode.mx, 'ptr')
+            .fixupSP(mode);
+    }
+}
+
+class InstructionPEA extends InstructionPushPtr {
     readonly mnemonic = 'PEA';
 }
 
 // PEI - Push Effective Indirect Address
-class InstructionPEI extends InstructionWithAddressingMode {
+class InstructionPEI extends InstructionPushPtr {
     readonly mnemonic = 'PEI';
 }
 
 // PER - Push Effective PC Relative Indirect Address
-class InstructionPER extends InstructionWithAddressingMode {
+class InstructionPER extends InstructionPushPtr {
     readonly mnemonic = 'PER';
+    protected extraCycles = 1;
 }
 
 // PHA - Push Accumulator
 class InstructionPHA extends InstructionImplied {
     readonly mnemonic = 'PHA';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_M(mode)) {
+            compiler.tick().push16(mode, 'state.a');
+        } else {
+            compiler.tick().push8(mode, 'state.a & 0xff');
+        }
+    }
 }
 
 // PHB - Push Data Bank Register
 class InstructionPHB extends InstructionImplied {
     readonly mnemonic = 'PHB';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.tick().push8(Mode.mx, 'state.dbr >>> 16').fixupSP(mode);
+    }
 }
 
 // PHD - Push Direct Page Register
 class InstructionPHD extends InstructionImplied {
     readonly mnemonic = 'PHD';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.tick().push16(Mode.mx, 'state.d').fixupSP(mode);
+    }
 }
 
 // PHK - Push Program Bank Register
 class InstructionPHK extends InstructionImplied {
     readonly mnemonic = 'PHK';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.tick().push8(Mode.mx, 'state.k >>> 16').fixupSP(mode);
+    }
 }
 
 // PHP - Push Processor Status Register
 class InstructionPHP extends InstructionImplied {
     readonly mnemonic = 'PHP';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.tick().push8(mode, 'state.p');
+    }
 }
 
 // PHX - Push X Register
 class InstructionPHX extends InstructionImplied {
     readonly mnemonic = 'PHX';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_X(mode)) {
+            compiler.tick().push16(mode, 'state.x');
+        } else {
+            compiler.tick().push8(mode, 'state.x');
+        }
+    }
 }
 
 // PHY - Push Y Register
 class InstructionPHY extends InstructionImplied {
     readonly mnemonic = 'PHY';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_X(mode)) {
+            compiler.tick().push16(mode, 'state.y');
+        } else {
+            compiler.tick().push8(mode, 'state.y');
+        }
+    }
 }
 
 // PLA - Pull Accumulator

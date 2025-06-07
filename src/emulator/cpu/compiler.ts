@@ -418,6 +418,19 @@ export class Compiler {
 
                 return this;
 
+            case AddressingMode.rel16:
+                this.chunks.push(outdent`
+                        let ptr = ${READ_PC};
+                        ${INCREMENT_PC};
+
+                        ptr |= ${READ_PC} << 8;
+                        ${INCREMENT_PC};
+
+                        ptr = (state.pc + ((ptr << 16) >> 16)) & 0xffff;
+                    `);
+
+                return this;
+
             default:
                 this.chunks.push(outdent`
                         let ptr = 0;
