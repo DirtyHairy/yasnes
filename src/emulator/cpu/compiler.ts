@@ -698,7 +698,7 @@ export class Compiler {
         if (mode === Mode.em) {
             this.add(`state.p |= ${Flag.m | Flag.x};`);
         } else {
-            this.add(`
+            this.add(outdent`
                     const newMode = (state.p >>> 4) & 0x03;
                     if (newMode != state.mode) {
                         state.mode = newMode;
