@@ -5,6 +5,7 @@ export const enum BreakReason {
     badRead,
     badWrite,
     instructionFault,
+    stp,
 }
 
 export type BreakCallback = (reason: BreakReason, message: string) => void;
@@ -22,6 +23,9 @@ export function breakReasonToString(breakReason: BreakReason): string {
 
         case BreakReason.instructionFault:
             return 'instruction fault';
+
+        case BreakReason.stp:
+            return 'STP';
 
         default:
             throw new UnreachableCaseError(breakReason);

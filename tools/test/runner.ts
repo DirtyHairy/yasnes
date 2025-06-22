@@ -107,8 +107,7 @@ export class TestRunner {
     }
 
     runOne(suite: Suite, index: number): boolean {
-        // The suites for 0x44 and 0x54 seem to be bad
-        if (suite.opcode === 0x44 || suite.opcode === 0x54) return true;
+        if (this.skip(suite.opcode)) return true;
 
         const fixtures = loadSuite(suite);
         const instruction = getInstruction(suite.opcode);
@@ -131,8 +130,7 @@ export class TestRunner {
     }
 
     runSuite(suite: Suite): boolean {
-        // The suites for 0x44 and 0x54 seem to be bad
-        if (suite.opcode === 0x44 || suite.opcode === 0x54) return true;
+        if (this.skip(suite.opcode)) return true;
 
         const fixtures = loadSuite(suite);
         const instruction = getInstruction(suite.opcode);
@@ -201,5 +199,15 @@ export class TestRunner {
         if (this.clock.getTicks() !== fixture.cycles.length) {
             throw new Error(`expected ${fixture.cycles.length} cycles, got ${this.clock.getTicks()} cycles`);
         }
+    }
+
+    private skip(opcode: number): boolean {
+        // The suites for 0x44 and 0x54 seem to be bad
+        if (opcode === 0x44 || opcode === 0x54) return true;
+
+        // we do not implement or test STP
+        if (opcode === 0xdb) return true;
+
+        return false;
     }
 }

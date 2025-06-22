@@ -1,6 +1,6 @@
 import indentString from 'indent-string';
 import { outdent } from 'outdent';
-import { Flag, Mode } from './state';
+import { Flag, Mode, SlowPathReason } from './state';
 import { AddressingMode } from './addressingMode';
 import { BreakReason } from '../break';
 import { hex16 } from '../util';
@@ -35,7 +35,8 @@ export function is16_X(mode: Mode): boolean {
 }
 
 export class Compiler {
-    chunks: Array<string> = [];
+    private chunks: Array<string> = [];
+    private opDeclared = false;
 
     constructor(private flags: number) {}
 
@@ -481,7 +482,7 @@ export class Compiler {
     }
 
     load8FromPtr(): Compiler {
-        this.chunks.push(`let op = bus.read(ptr, breakCb);`);
+        this.chunks.push(`${this.op()} = bus.read(ptr, breakCb);`);
         return this;
     }
 
@@ -490,12 +491,16 @@ export class Compiler {
             case AddressingMode.direct:
             case AddressingMode.direct_x:
             case AddressingMode.direct_y:
-                this.chunks.push(`let op = bus.read(ptr, breakCb) | (bus.read((ptr + 1) & 0xffff, breakCb) << 8);`);
+                this.chunks.push(
+                    `${this.op()} = bus.read(ptr, breakCb) | (bus.read((ptr + 1) & 0xffff, breakCb) << 8);`,
+                );
 
                 return this;
 
             default:
-                this.chunks.push(`let op = bus.read(ptr, breakCb) | (bus.read((ptr + 1) & 0xffffff, breakCb) << 8);`);
+                this.chunks.push(
+                    `${this.op()} = bus.read(ptr, breakCb) | (bus.read((ptr + 1) & 0xffffff, breakCb) << 8);`,
+                );
                 return this;
         }
     }
@@ -503,7 +508,7 @@ export class Compiler {
     load8(mode: Mode, addressingMode: AddressingMode, forRmw = false): Compiler {
         if (addressingMode === AddressingMode.imm) {
             this.chunks.push(outdent`
-                    let op = ${READ_PC};
+                    ${this.op()} = ${READ_PC};
                     ${INCREMENT_PC};
                 `);
 
@@ -516,7 +521,7 @@ export class Compiler {
     load16(mode: Mode, addressingMode: AddressingMode, forRmw = false): Compiler {
         if (addressingMode === AddressingMode.imm) {
             this.chunks.push(outdent`
-                    let op = ${READ_PC};
+                    ${this.op()} = ${READ_PC};
                     ${INCREMENT_PC};
 
                     op |= (${READ_PC}) << 8;
@@ -536,7 +541,7 @@ export class Compiler {
 
     rmw(mode: Mode, addressingMode: AddressingMode, is16: boolean, operation: string): Compiler {
         if (addressingMode === AddressingMode.implied) {
-            this.chunks.push(is16 ? 'let op = state.a;' : 'let op = state.a & 0xff;');
+            this.chunks.push(is16 ? `${this.op()} = state.a;` : `${this.op()} = state.a & 0xff;`);
         } else {
             this.load(mode, addressingMode, is16, true);
         }
@@ -622,12 +627,12 @@ export class Compiler {
         if (mode === Mode.em) {
             this.chunks.push(outdent`
                     state.s = (state.s & 0xff00) | ((state.s + 1) & 0xff);
-                    let op = bus.read(state.s, breakCb);
+                    ${this.op()} = bus.read(state.s, breakCb);
                 `);
         } else {
             this.chunks.push(outdent`
                     state.s = (state.s + 1) & 0xffff;
-                    let op = bus.read(state.s, breakCb);
+                    ${this.op()} = bus.read(state.s, breakCb);
                 `);
         }
 
@@ -638,7 +643,7 @@ export class Compiler {
         if (mode === Mode.em) {
             this.chunks.push(outdent`
                     state.s = (state.s & 0xff00) | ((state.s + 1) & 0xff);
-                    let op = bus.read(state.s, breakCb);
+                    ${this.op()} = bus.read(state.s, breakCb);
 
                     state.s = (state.s & 0xff00) | ((state.s + 1) & 0xff);
                     op |= bus.read(state.s, breakCb) << 8;
@@ -646,7 +651,7 @@ export class Compiler {
         } else {
             this.chunks.push(outdent`
                     state.s = (state.s + 1) & 0xffff;
-                    let op = bus.read(state.s, breakCb);
+                    ${this.op()} = bus.read(state.s, breakCb);
 
                     state.s = (state.s + 1) & 0xffff;
                     op |= bus.read(state.s, breakCb) << 8;
@@ -689,6 +694,28 @@ export class Compiler {
         return this;
     }
 
+    handleFlagChange(mode: Mode): Compiler {
+        if (mode === Mode.em) {
+            this.add(`state.p |= ${Flag.m | Flag.x};`);
+        } else {
+            this.add(`
+                    const newMode = (state.p >>> 4) & 0x03;
+                    if (newMode != state.mode) {
+                        state.mode = newMode;
+
+                        if (state.p & ${Flag.x}) {
+                            state.x &= 0xff;
+                            state.y &= 0xff;
+                        }
+
+                        state.slowPath |= ${SlowPathReason.modeChange};
+                    }
+                `);
+        }
+
+        return this;
+    }
+
     tick(count = 1): Compiler {
         if (count > 0) this.chunks.push(count > 1 ? `clock.tickCpu_N(${count});` : 'clock.tickCpu();');
 
@@ -703,5 +730,15 @@ export class Compiler {
         ${indentString(this.chunks.join('\n\n'), 4)}
         }
         `;
+    }
+
+    private op(): string {
+        if (this.opDeclared) {
+            return 'op';
+        } else {
+            this.opDeclared = true;
+
+            return 'let op';
+        }
     }
 }

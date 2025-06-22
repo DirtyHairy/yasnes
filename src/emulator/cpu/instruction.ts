@@ -1005,25 +1005,7 @@ class InstructionPLP extends InstructionImplied {
     readonly mnemonic = 'PLP';
 
     protected build(mode: Mode, compiler: Compiler): void {
-        compiler.tick(2).pull8(mode).add('state.p = op;');
-
-        if (mode === Mode.em) {
-            compiler.add(`state.p |= ${Flag.m | Flag.x};`);
-        } else {
-            compiler.add(`
-                    const newMode = (state.p >>> 4) & 0x03;
-                    if (newMode != state.mode) {
-                        state.mode = newMode;
-
-                        if (state.p & ${Flag.x}) {
-                            state.x &= 0xff;
-                            state.y &= 0xff;
-                        }
-
-                        state.slowPath |= ${SlowPathReason.modeChange};
-                    }
-                `);
-        }
+        compiler.tick(2).pull8(mode).add('state.p = op;').handleFlagChange(mode);
     }
 }
 
@@ -1156,16 +1138,46 @@ class InstructionROR extends InstructionWithAddressingMode {
 // RTI - Return from Interrupt
 class InstructionRTI extends InstructionImplied {
     readonly mnemonic = 'RTI';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (mode === Mode.em) {
+            compiler.tick(2).pull8(mode).add('state.p = op;').pull16(mode).add('state.pc = op;').handleFlagChange(mode);
+        } else {
+            compiler
+                .tick(2)
+                .pull8(mode)
+                .add('state.p = op;')
+                .pull16(mode)
+                .add('state.pc = op;')
+                .pull8(mode)
+                .add('state.k = op << 16;')
+                .handleFlagChange(mode);
+        }
+    }
 }
 
 // RTL - Return from Subroutine Long
 class InstructionRTL extends InstructionImplied {
     readonly mnemonic = 'RTL';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .tick(2)
+            .pull16(Mode.mx)
+            .add('state.pc = (op + 1) & 0xffff;')
+            .pull8(Mode.mx)
+            .add('state.k = op << 16;')
+            .fixupSP(mode);
+    }
 }
 
 // RTS - Return from Subroutine
 class InstructionRTS extends InstructionImplied {
     readonly mnemonic = 'RTS';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.tick(2).pull16(mode).add('state.pc = (op + 1) & 0xffff;').tick();
+    }
 }
 
 // SBC - Subtract with Carry
@@ -1295,21 +1307,7 @@ class InstructionSEP extends InstructionWithAddressingMode {
     protected build(mode: Mode, compiler: Compiler): void {
         compiler.load8(mode, this.addressingMode).add(`state.p |= op;`);
 
-        if (mode !== Mode.em) {
-            compiler.add(outdent`
-                    const newMode = (state.p >>> 4) & 0x03;
-                    if (newMode != state.mode) {
-                        state.mode = newMode;
-
-                        if (state.p & ${Flag.x}) {
-                            state.x &= 0xff;
-                            state.y &= 0xff;
-                        }
-
-                        state.slowPath |= ${SlowPathReason.modeChange};
-                    }
-                `);
-        }
+        if (mode !== Mode.em) compiler.handleFlagChange(mode);
 
         compiler.tick();
     }
@@ -1327,6 +1325,10 @@ class InstructionSTA extends InstructionWithAddressingMode {
 // STP - Stop the Clock
 class InstructionSTP extends InstructionImplied {
     readonly mnemonic = 'STP';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.add(`breakCb(${BreakReason.stp}, 'STP encountered');`);
+    }
 }
 
 // STX - Store X Register
