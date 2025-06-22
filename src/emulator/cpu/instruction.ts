@@ -1003,6 +1003,28 @@ class InstructionPLD extends InstructionImplied {
 // PLP - Pull Processor Status Register
 class InstructionPLP extends InstructionImplied {
     readonly mnemonic = 'PLP';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.tick(2).pull8(mode).add('state.p = op;');
+
+        if (mode === Mode.em) {
+            compiler.add(`state.p |= ${Flag.m | Flag.x};`);
+        } else {
+            compiler.add(`
+                    const newMode = (state.p >>> 4) & 0x03;
+                    if (newMode != state.mode) {
+                        state.mode = newMode;
+
+                        if (state.p & ${Flag.x}) {
+                            state.x &= 0xff;
+                            state.y &= 0xff;
+                        }
+
+                        state.slowPath |= ${SlowPathReason.modeChange};
+                    }
+                `);
+        }
+    }
 }
 
 // PLX - Pull X Register
