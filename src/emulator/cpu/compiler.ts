@@ -618,6 +618,44 @@ export class Compiler {
         return this.push8(mode, `${value} & 0xff`);
     }
 
+    pull8(mode: Mode): Compiler {
+        if (mode === Mode.em) {
+            this.chunks.push(outdent`
+                    state.s = (state.s & 0xff00) | ((state.s + 1) & 0xff);
+                    let op = bus.read(state.s, breakCb);
+                `);
+        } else {
+            this.chunks.push(outdent`
+                    state.s = (state.s + 1) & 0xffff;
+                    let op = bus.read(state.s, breakCb);
+                `);
+        }
+
+        return this;
+    }
+
+    pull16(mode: Mode): Compiler {
+        if (mode === Mode.em) {
+            this.chunks.push(outdent`
+                    state.s = (state.s & 0xff00) | ((state.s + 1) & 0xff);
+                    let op = bus.read(state.s, breakCb);
+
+                    state.s = (state.s & 0xff00) | ((state.s + 1) & 0xff);
+                    op |= bus.read(state.s, breakCb) << 8;
+                `);
+        } else {
+            this.chunks.push(outdent`
+                    state.s = (state.s + 1) & 0xffff;
+                    let op = bus.read(state.s, breakCb);
+
+                    state.s = (state.s + 1) & 0xffff;
+                    op |= bus.read(state.s, breakCb) << 8;
+                `);
+        }
+
+        return this;
+    }
+
     fixupSP(mode: Mode): Compiler {
         if (mode === Mode.em) this.chunks.push('state.s = (state.s & 0xff) | 0x0100');
 

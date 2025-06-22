@@ -972,16 +972,32 @@ class InstructionPHY extends InstructionImplied {
 // PLA - Pull Accumulator
 class InstructionPLA extends InstructionImplied {
     readonly mnemonic = 'PLA';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_M(mode)) {
+            compiler.tick(2).pull16(mode).add('state.a = op;').setFlagsNZ('op', true);
+        } else {
+            compiler.tick(2).pull8(mode).add('state.a = (state.a & 0xff00) | op;').setFlagsNZ('op', false);
+        }
+    }
 }
 
 // PLB - Pull Data Bank Register
 class InstructionPLB extends InstructionImplied {
     readonly mnemonic = 'PLB';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.tick(2).pull8(Mode.mx).add('state.dbr = op << 16;').setFlagsNZ('op', false).fixupSP(mode);
+    }
 }
 
 // PLD - Pull Direct Page Register
 class InstructionPLD extends InstructionImplied {
     readonly mnemonic = 'PLD';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.tick(2).pull16(Mode.mx).add('state.d = op;').setFlagsNZ('op', true).fixupSP(mode);
+    }
 }
 
 // PLP - Pull Processor Status Register
@@ -992,11 +1008,27 @@ class InstructionPLP extends InstructionImplied {
 // PLX - Pull X Register
 class InstructionPLX extends InstructionImplied {
     readonly mnemonic = 'PLX';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_X(mode)) {
+            compiler.tick(2).pull16(mode).add('state.x = op;').setFlagsNZ('op', true);
+        } else {
+            compiler.tick(2).pull8(mode).add('state.x = op;').setFlagsNZ('op', false);
+        }
+    }
 }
 
 // PLY - Pull Y Register
 class InstructionPLY extends InstructionImplied {
     readonly mnemonic = 'PLY';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        if (is16_X(mode)) {
+            compiler.tick(2).pull16(mode).add('state.y = op;').setFlagsNZ('op', true);
+        } else {
+            compiler.tick(2).pull8(mode).add('state.y = op;').setFlagsNZ('op', false);
+        }
+    }
 }
 
 // REP - Reset Processor Status Bits
