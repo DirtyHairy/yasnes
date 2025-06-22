@@ -1412,11 +1412,35 @@ class InstructionTDC extends InstructionImplied {
 // TRB - Test and Reset Bits
 class InstructionTRB extends InstructionWithAddressingMode {
     readonly mnemonic = 'TRB';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.rmw(
+            mode === Mode.em ? Mode.mx : mode,
+            this.addressingMode,
+            is16_M(mode),
+            outdent`
+                let res = op & ~state.a;
+                if ((op & state.a) === 0) state.p |= ${Flag.z}; else state.p &= ${~Flag.z};
+            `,
+        );
+    }
 }
 
 // TSB - Test and Set Bits
 class InstructionTSB extends InstructionWithAddressingMode {
     readonly mnemonic = 'TSB';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.rmw(
+            mode === Mode.em ? Mode.mx : mode,
+            this.addressingMode,
+            is16_M(mode),
+            outdent`
+                let res = op | ${is16_M(mode) ? 'state.a' : '(state.a & 0xff)'};
+                if ((op & state.a) === 0) state.p |= ${Flag.z}; else state.p &= ${~Flag.z};
+            `,
+        );
+    }
 }
 
 // TSC - Transfer Stack Pointer to 16-bit Accumulator
@@ -1503,13 +1527,29 @@ class InstructionWAI extends InstructionImplied {
 }
 
 // WDM - Reserved for Future Expansion
-class InstructionWDM extends InstructionImplied {
+class InstructionWDM extends InstructionWithAddressingMode {
     readonly mnemonic = 'WDM';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler.load8(mode, this.addressingMode);
+    }
 }
 
 // XBA - Exchange B and A Accumulators
 class InstructionXBA extends InstructionImplied {
     readonly mnemonic = 'XBA';
+
+    protected build(mode: Mode, compiler: Compiler): void {
+        compiler
+            .tick(2)
+            .add(
+                outdent`
+                let lo = state.a & 0xff;
+                state.a = (state.a >>> 8) | (lo << 8);
+            `,
+            )
+            .setFlagsNZ('(state.a & 0xff)', false);
+    }
 }
 
 // XCE - Exchange Carry and Emulation Flags
@@ -1998,7 +2038,7 @@ export function registerInstructions(): void {
     registerInstruction(0xcb, new InstructionWAI(0xcb));
 
     // WDM - Reserved for Future Expansion
-    registerInstruction(0x42, new InstructionWDM(0x42));
+    registerInstruction(0x42, new InstructionWDM(0x42, AddressingMode.imm));
 
     // XBA - Exchange B and A Accumulators
     registerInstruction(0xeb, new InstructionXBA(0xeb));
